@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package global provides global providers, propagators and more.
-//
-// This package is currently in a pre-GA phase. Backwards incompatible changes
-// may be introduced in subsequent minor version releases as we work to track
-// the evolving OpenTelemetry specification and user feedback.
-package global // import "go.opentelemetry.io/otel/global"
+package otel // import "go.opentelemetry.io/otel"
+
+// Version is the current release version of OpenTelemetry in use.
+func Version() string {
+	return "0.15.0"
+}
