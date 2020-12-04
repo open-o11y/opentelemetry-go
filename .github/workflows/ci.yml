@@ -20,7 +20,7 @@ jobs:
         run: sudo chmod -R 777 $GITHUB_WORKSPACE /github /__w/_temp
       - name: Checkout Repo
         uses: actions/checkout@v2
-      - run: echo $GITHUB_WORKSPACE
+      - run: echo "$GITHUB_WORKSPACE"
       - name: restore cache
         uses: actions/cache@v2
         env:
