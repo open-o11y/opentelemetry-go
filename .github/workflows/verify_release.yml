@@ -1,0 +1,23 @@
+name: cd
+on:
+  release:
+    types: [published]
+
+jobs:
+  verify_examples:
+    runs-on: ubuntu-latest
+    container:
+      image: cimg/go:1.15
+    steps:
+      - name: Setup required permissions
+        run: sudo chmod -R 777 $GITHUB_WORKSPACE /github /__w/_temp
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: verify examples
+        run: ./verify_examples.sh
+      - name: Verification failed, create issue
+        if: ${{ failure() }}.github/workflows/verify_release.yml
+        run: |
+
+
+

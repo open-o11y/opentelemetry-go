@@ -1,0 +1,31 @@
+name: cd
+on:
+  push:
+    tags:
+      - v[0-9]+.[0-9]+.[0-9]+
+    schedule:
+      - cron: '*/5 * * * *' # '* * */2 * *'
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0 # ensures we fetch complete history for all branches and tags
+      # DETERMINE TAG IF RUNNING FROM SCHEDULE
+      - name: Update CHANGELOG
+        run: |
+          ./internal/release/release
+          git commit -am "updating changelog for release $GITHUB_REF"
+        env:
+          RELEASE_TAG: ${{ github.ref }}
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          body_path: CHANGELOG.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
