@@ -16,204 +16,41 @@ package otlp_test
 
 import (
 	"context"
-	"fmt"
 	"log"
-	"time"
 
-	"google.golang.org/grpc/credentials"
+	"go.opentelemetry.io/otel/exporters/otlp"
 
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/otlp"
-	"go.opentelemetry.io/otel/metric"
-	"go.opentelemetry.io/otel/sdk/metric/controller/push"
-	"go.opentelemetry.io/otel/sdk/metric/processor/basic"
-	"go.opentelemetry.io/otel/sdk/metric/selector/simple"
+	"go.opentelemetry.io/otel/exporters/otlp/otlpgrpc"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
-func Example_insecure() {
+func ExampleNewExporter() {
 	ctx := context.Background()
-	driver := otlp.NewGRPCDriver(otlp.WithInsecure())
-	exp, err := otlp.NewExporter(ctx, driver)
-	if err != nil {
-		log.Fatalf("Failed to create the collector exporter: %v", err)
-	}
-	defer func() {
-		ctx, cancel := context.WithTimeout(ctx, time.Second)
-		defer cancel()
-		if err := exp.Shutdown(ctx); err != nil {
-			otel.Handle(err)
-		}
-	}()
-
-	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithConfig(sdktrace.Config{DefaultSampler: sdktrace.AlwaysSample()}),
-		sdktrace.WithBatcher(
-			exp,
-			// add following two options to ensure flush
-			sdktrace.WithBatchTimeout(5),
-			sdktrace.WithMaxExportBatchSize(10),
-		),
-	)
-	defer func() {
-		ctx, cancel := context.WithTimeout(ctx, time.Second)
-		defer cancel()
-		if err := tp.Shutdown(ctx); err != nil {
-			otel.Handle(err)
-		}
-	}()
-	otel.SetTracerProvider(tp)
-
-	tracer := otel.Tracer("test-tracer")
-
-	// Then use the OpenTelemetry tracing library, like we normally would.
-	ctx, span := tracer.Start(ctx, "CollectorExporter-Example")
-	defer span.End()
-
-	for i := 0; i < 10; i++ {
-		_, iSpan := tracer.Start(ctx, fmt.Sprintf("Sample-%d", i))
-		<-time.After(6 * time.Millisecond)
-		iSpan.End()
-	}
-}
-
-func Example_withTLS() {
-	// Please take at look at https://pkg.go.dev/google.golang.org/grpc/credentials#TransportCredentials
-	// for ways on how to initialize gRPC TransportCredentials.
-	creds, err := credentials.NewClientTLSFromFile("my-cert.pem", "")
-	if err != nil {
-		log.Fatalf("failed to create gRPC client TLS credentials: %v", err)
-	}
-
-	ctx := context.Background()
-	driver := otlp.NewGRPCDriver(otlp.WithTLSCredentials(creds))
-	exp, err := otlp.NewExporter(ctx, driver)
-	if err != nil {
-		log.Fatalf("failed to create the collector exporter: %v", err)
-	}
-	defer func() {
-		ctx, cancel := context.WithTimeout(ctx, time.Second)
-		defer cancel()
-		if err := exp.Shutdown(ctx); err != nil {
-			otel.Handle(err)
-		}
-	}()
-
-	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithConfig(sdktrace.Config{DefaultSampler: sdktrace.AlwaysSample()}),
-		sdktrace.WithBatcher(
-			exp,
-			// add following two options to ensure flush
-			sdktrace.WithBatchTimeout(5),
-			sdktrace.WithMaxExportBatchSize(10),
-		),
-	)
-	defer func() {
-		ctx, cancel := context.WithTimeout(ctx, time.Second)
-		defer cancel()
-		if err := tp.Shutdown(ctx); err != nil {
-			otel.Handle(err)
-		}
-	}()
-	otel.SetTracerProvider(tp)
-
-	tracer := otel.Tracer("test-tracer")
-
-	// Then use the OpenTelemetry tracing library, like we normally would.
-	ctx, span := tracer.Start(ctx, "Securely-Talking-To-Collector-Span")
-	defer span.End()
-
-	for i := 0; i < 10; i++ {
-		_, iSpan := tracer.Start(ctx, fmt.Sprintf("Sample-%d", i))
-		<-time.After(6 * time.Millisecond)
-		iSpan.End()
-	}
-}
-
-func Example_withDifferentSignalCollectors() {
 
 	// Set different endpoints for the metrics and traces collectors
-	metricsDriver := otlp.NewGRPCDriver(
-		otlp.WithInsecure(),
-		otlp.WithEndpoint("localhost:30080"),
+	metricsDriver := otlpgrpc.NewDriver(
+	// Configure metrics driver here
 	)
-	tracesDriver := otlp.NewGRPCDriver(
-		otlp.WithInsecure(),
-		otlp.WithEndpoint("localhost:30082"),
+	tracesDriver := otlpgrpc.NewDriver(
+	// Configure traces driver here
 	)
-	splitCfg := otlp.SplitConfig{
+	config := otlp.SplitConfig{
 		ForMetrics: metricsDriver,
 		ForTraces:  tracesDriver,
 	}
-	driver := otlp.NewSplitDriver(splitCfg)
-	ctx := context.Background()
-	exp, err := otlp.NewExporter(ctx, driver)
+	driver := otlp.NewSplitDriver(config)
+	exporter, err := otlp.NewExporter(ctx, driver) // Configure as needed.
 	if err != nil {
-		log.Fatalf("failed to create the collector exporter: %v", err)
+		log.Fatalf("failed to create exporter: %v", err)
 	}
-
 	defer func() {
-		ctx, cancel := context.WithTimeout(ctx, time.Second)
-		defer cancel()
-		if err := exp.Shutdown(ctx); err != nil {
-			otel.Handle(err)
+		err := exporter.Shutdown(ctx)
+		if err != nil {
+			log.Fatalf("failed to stop exporter: %v", err)
 		}
 	}()
 
-	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithConfig(sdktrace.Config{DefaultSampler: sdktrace.AlwaysSample()}),
-		sdktrace.WithBatcher(
-			exp,
-			// add following two options to ensure flush
-			sdktrace.WithBatchTimeout(5),
-			sdktrace.WithMaxExportBatchSize(10),
-		),
-	)
-	defer func() {
-		ctx, cancel := context.WithTimeout(ctx, time.Second)
-		defer cancel()
-		if err := tp.Shutdown(ctx); err != nil {
-			otel.Handle(err)
-		}
-	}()
-	otel.SetTracerProvider(tp)
-
-	pusher := push.New(
-		basic.New(
-			simple.NewWithExactDistribution(),
-			exp,
-		),
-		exp,
-		push.WithPeriod(2*time.Second),
-	)
-	otel.SetMeterProvider(pusher.MeterProvider())
-
-	pusher.Start()
-	defer pusher.Stop() // pushes any last exports to the receiver
-
-	tracer := otel.Tracer("test-tracer")
-	meter := otel.Meter("test-meter")
-
-	// Recorder metric example
-	valuerecorder := metric.Must(meter).
-		NewFloat64Counter(
-			"an_important_metric",
-			metric.WithDescription("Measures the cumulative epicness of the app"),
-		)
-
-	// work begins
-	ctx, span := tracer.Start(
-		ctx,
-		"DifferentCollectors-Example")
-	defer span.End()
-	for i := 0; i < 10; i++ {
-		_, iSpan := tracer.Start(ctx, fmt.Sprintf("Sample-%d", i))
-		log.Printf("Doing really hard work (%d / 10)\n", i+1)
-		valuerecorder.Add(ctx, 1.0)
-
-		<-time.After(time.Second)
-		iSpan.End()
-	}
-
-	log.Printf("Done!")
+	tracerProvider := sdktrace.NewTracerProvider(sdktrace.WithBatcher(exporter))
+	otel.SetTracerProvider(tracerProvider)
 }

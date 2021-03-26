@@ -19,9 +19,10 @@ import (
 	"log"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/stdout"
-	"go.opentelemetry.io/otel/label"
 	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/metric/global"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -36,7 +37,7 @@ var (
 		trace.WithInstrumentationVersion(instrumentationVersion),
 	)
 
-	meter = otel.GetMeterProvider().Meter(
+	meter = global.GetMeterProvider().Meter(
 		instrumentationName,
 		metric.WithInstrumentationVersion(instrumentationVersion),
 	)
@@ -44,7 +45,7 @@ var (
 	loopCounter = metric.Must(meter).NewInt64Counter("function.loops")
 	paramValue  = metric.Must(meter).NewInt64ValueRecorder("function.param")
 
-	nameKey = label.Key("function.name")
+	nameKey = attribute.Key("function.name")
 )
 
 func add(ctx context.Context, x, y int64) int64 {
@@ -77,7 +78,6 @@ func multiply(ctx context.Context, x, y int64) int64 {
 
 func Example() {
 	exportOpts := []stdout.Option{
-		stdout.WithQuantiles([]float64{0.5}),
 		stdout.WithPrettyPrint(),
 	}
 	// Registers both a trace and meter Provider globally.
@@ -85,8 +85,11 @@ func Example() {
 	if err != nil {
 		log.Fatal("Could not initialize stdout exporter:", err)
 	}
-	defer pusher.Stop()
-
 	ctx := context.Background()
+
 	log.Println("the answer is", add(ctx, multiply(ctx, multiply(ctx, 2, 2), 10), 2))
+
+	if err := pusher.Stop(ctx); err != nil {
+		log.Fatal("Could not stop stdout exporter:", err)
+	}
 }

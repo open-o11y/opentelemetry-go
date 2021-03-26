@@ -24,7 +24,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	ottest "go.opentelemetry.io/otel/internal/testing"
+	ottest "go.opentelemetry.io/otel/internal/internaltest"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/metric/number"
 	export "go.opentelemetry.io/otel/sdk/export/metric"
@@ -101,6 +101,8 @@ func TestLastValueMerge(t *testing.T) {
 		first1.AddNumber(profile.NumberKind, first2)
 
 		aggregatortest.CheckedUpdate(t, agg1, first1, descriptor)
+		// Ensure these should not have the same timestamp.
+		time.Sleep(time.Nanosecond)
 		aggregatortest.CheckedUpdate(t, agg2, first2, descriptor)
 
 		require.NoError(t, agg1.SynchronizedMove(ckpt1, descriptor))

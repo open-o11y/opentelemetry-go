@@ -18,8 +18,8 @@ import (
 	"context"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
-	"go.opentelemetry.io/otel/label"
 	"go.opentelemetry.io/otel/trace"
 
 	"go.opentelemetry.io/otel/sdk/instrumentation"
@@ -61,13 +61,15 @@ type SpanSnapshot struct {
 	StartTime    time.Time
 	// The wall clock time of EndTime will be adjusted to always be offset
 	// from StartTime by the duration of the span.
-	EndTime                  time.Time
-	Attributes               []label.KeyValue
-	MessageEvents            []Event
-	Links                    []trace.Link
-	StatusCode               codes.Code
-	StatusMessage            string
-	HasRemoteParent          bool
+	EndTime         time.Time
+	Attributes      []attribute.KeyValue
+	MessageEvents   []trace.Event
+	Links           []trace.Link
+	StatusCode      codes.Code
+	StatusMessage   string
+	HasRemoteParent bool
+
+	// DroppedAttributeCount contains dropped attributes for the span itself, events and links.
 	DroppedAttributeCount    int
 	DroppedMessageEventCount int
 	DroppedLinkCount         int
@@ -81,16 +83,4 @@ type SpanSnapshot struct {
 	// InstrumentationLibrary defines the instrumentation library used to
 	// provide instrumentation.
 	InstrumentationLibrary instrumentation.Library
-}
-
-// Event is thing that happened during a Span's lifetime.
-type Event struct {
-	// Name is the name of this event
-	Name string
-
-	// Attributes describe the aspects of the event.
-	Attributes []label.KeyValue
-
-	// Time is the time at which this event was recorded.
-	Time time.Time
 }

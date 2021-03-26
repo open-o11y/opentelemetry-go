@@ -26,16 +26,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/stdout"
-	"go.opentelemetry.io/otel/label"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/metric/number"
 	export "go.opentelemetry.io/otel/sdk/export/metric"
-	"go.opentelemetry.io/otel/sdk/export/metric/aggregation"
 	"go.opentelemetry.io/otel/sdk/export/metric/metrictest"
 	"go.opentelemetry.io/otel/sdk/metric/aggregator/aggregatortest"
-	"go.opentelemetry.io/otel/sdk/metric/aggregator/array"
-	"go.opentelemetry.io/otel/sdk/metric/aggregator/ddsketch"
 	"go.opentelemetry.io/otel/sdk/metric/aggregator/lastvalue"
 	"go.opentelemetry.io/otel/sdk/metric/aggregator/minmaxsumcount"
 	"go.opentelemetry.io/otel/sdk/metric/aggregator/sum"
@@ -49,7 +46,7 @@ type testFixture struct {
 	output   *bytes.Buffer
 }
 
-var testResource = resource.NewWithAttributes(label.String("R", "V"))
+var testResource = resource.NewWithAttributes(attribute.String("R", "V"))
 
 func newFixture(t *testing.T, opts ...stdout.Option) testFixture {
 	buf := &bytes.Buffer{}
@@ -78,14 +75,6 @@ func (fix testFixture) Export(checkpointSet export.CheckpointSet) {
 	}
 }
 
-func TestStdoutInvalidQuantile(t *testing.T) {
-	_, err := stdout.NewExporter(
-		stdout.WithQuantiles([]float64{1.1, 0.9}),
-	)
-	require.Error(t, err, "Invalid quantile error expected")
-	require.Equal(t, aggregation.ErrInvalidQuantile, err)
-}
-
 func TestStdoutTimestamp(t *testing.T) {
 	var buf bytes.Buffer
 	exporter, err := stdout.NewExporter(
@@ -96,6 +85,8 @@ func TestStdoutTimestamp(t *testing.T) {
 	}
 
 	before := time.Now()
+	// Ensure the timestamp is after before.
+	time.Sleep(time.Nanosecond)
 
 	checkpointSet := metrictest.NewCheckpointSet(testResource)
 
@@ -113,6 +104,8 @@ func TestStdoutTimestamp(t *testing.T) {
 		t.Fatal("Unexpected export error: ", err)
 	}
 
+	// Ensure the timestamp is before after.
+	time.Sleep(time.Nanosecond)
 	after := time.Now()
 
 	var printed []interface{}
@@ -146,7 +139,7 @@ func TestStdoutCounterFormat(t *testing.T) {
 	aggregatortest.CheckedUpdate(fix.t, cagg, number.NewInt64Number(123), &desc)
 	require.NoError(t, cagg.SynchronizedMove(ckpt, &desc))
 
-	checkpointSet.Add(&desc, ckpt, label.String("A", "B"), label.String("C", "D"))
+	checkpointSet.Add(&desc, ckpt, attribute.String("A", "B"), attribute.String("C", "D"))
 
 	fix.Export(checkpointSet)
 
@@ -164,7 +157,7 @@ func TestStdoutLastValueFormat(t *testing.T) {
 	aggregatortest.CheckedUpdate(fix.t, lvagg, number.NewFloat64Number(123.456), &desc)
 	require.NoError(t, lvagg.SynchronizedMove(ckpt, &desc))
 
-	checkpointSet.Add(&desc, ckpt, label.String("A", "B"), label.String("C", "D"))
+	checkpointSet.Add(&desc, ckpt, attribute.String("A", "B"), attribute.String("C", "D"))
 
 	fix.Export(checkpointSet)
 
@@ -184,7 +177,7 @@ func TestStdoutMinMaxSumCount(t *testing.T) {
 	aggregatortest.CheckedUpdate(fix.t, magg, number.NewFloat64Number(876.543), &desc)
 	require.NoError(t, magg.SynchronizedMove(ckpt, &desc))
 
-	checkpointSet.Add(&desc, ckpt, label.String("A", "B"), label.String("C", "D"))
+	checkpointSet.Add(&desc, ckpt, attribute.String("A", "B"), attribute.String("C", "D"))
 
 	fix.Export(checkpointSet)
 
@@ -197,7 +190,7 @@ func TestStdoutValueRecorderFormat(t *testing.T) {
 	checkpointSet := metrictest.NewCheckpointSet(testResource)
 
 	desc := metric.NewDescriptor("test.name", metric.ValueRecorderInstrumentKind, number.Float64Kind)
-	aagg, ckpt := metrictest.Unslice2(array.New(2))
+	aagg, ckpt := metrictest.Unslice2(minmaxsumcount.New(2, &desc))
 
 	for i := 0; i < 1000; i++ {
 		aggregatortest.CheckedUpdate(fix.t, aagg, number.NewFloat64Number(float64(i)+0.5), &desc)
@@ -205,7 +198,7 @@ func TestStdoutValueRecorderFormat(t *testing.T) {
 
 	require.NoError(t, aagg.SynchronizedMove(ckpt, &desc))
 
-	checkpointSet.Add(&desc, ckpt, label.String("A", "B"), label.String("C", "D"))
+	checkpointSet.Add(&desc, ckpt, attribute.String("A", "B"), attribute.String("C", "D"))
 
 	fix.Export(checkpointSet)
 
@@ -215,21 +208,7 @@ func TestStdoutValueRecorderFormat(t *testing.T) {
 		"Min": 0.5,
 		"Max": 999.5,
 		"Sum": 500000,
-		"Count": 1000,
-		"Quantiles": [
-			{
-				"Quantile": 0.5,
-				"Value": 500.5
-			},
-			{
-				"Quantile": 0.9,
-				"Value": 900.5
-			},
-			{
-				"Quantile": 0.99,
-				"Value": 990.5
-			}
-		]
+		"Count": 1000
 	}
 ]`, fix.Output())
 }
@@ -255,7 +234,7 @@ func TestStdoutNoData(t *testing.T) {
 		})
 	}
 
-	runTwoAggs(metrictest.Unslice2(ddsketch.New(2, &desc, ddsketch.NewDefaultConfig())))
+	runTwoAggs(metrictest.Unslice2(lastvalue.New(2)))
 	runTwoAggs(metrictest.Unslice2(minmaxsumcount.New(2, &desc)))
 }
 
@@ -269,7 +248,7 @@ func TestStdoutLastValueNotSet(t *testing.T) {
 	lvagg, ckpt := metrictest.Unslice2(lastvalue.New(2))
 	require.NoError(t, lvagg.SynchronizedMove(ckpt, &desc))
 
-	checkpointSet.Add(&desc, lvagg, label.String("A", "B"), label.String("C", "D"))
+	checkpointSet.Add(&desc, lvagg, attribute.String("A", "B"), attribute.String("C", "D"))
 
 	fix.Export(checkpointSet)
 
@@ -280,9 +259,9 @@ func TestStdoutResource(t *testing.T) {
 	type testCase struct {
 		expect string
 		res    *resource.Resource
-		attrs  []label.KeyValue
+		attrs  []attribute.KeyValue
 	}
-	newCase := func(expect string, res *resource.Resource, attrs ...label.KeyValue) testCase {
+	newCase := func(expect string, res *resource.Resource, attrs ...attribute.KeyValue) testCase {
 		return testCase{
 			expect: expect,
 			res:    res,
@@ -291,23 +270,23 @@ func TestStdoutResource(t *testing.T) {
 	}
 	testCases := []testCase{
 		newCase("R1=V1,R2=V2,A=B,C=D",
-			resource.NewWithAttributes(label.String("R1", "V1"), label.String("R2", "V2")),
-			label.String("A", "B"),
-			label.String("C", "D")),
+			resource.NewWithAttributes(attribute.String("R1", "V1"), attribute.String("R2", "V2")),
+			attribute.String("A", "B"),
+			attribute.String("C", "D")),
 		newCase("R1=V1,R2=V2",
-			resource.NewWithAttributes(label.String("R1", "V1"), label.String("R2", "V2")),
+			resource.NewWithAttributes(attribute.String("R1", "V1"), attribute.String("R2", "V2")),
 		),
 		newCase("A=B,C=D",
 			nil,
-			label.String("A", "B"),
-			label.String("C", "D"),
+			attribute.String("A", "B"),
+			attribute.String("C", "D"),
 		),
 		// We explicitly do not de-duplicate between resources
 		// and metric labels in this exporter.
 		newCase("R1=V1,R2=V2,R1=V3,R2=V4",
-			resource.NewWithAttributes(label.String("R1", "V1"), label.String("R2", "V2")),
-			label.String("R1", "V3"),
-			label.String("R2", "V4")),
+			resource.NewWithAttributes(attribute.String("R1", "V1"), attribute.String("R2", "V2")),
+			attribute.String("R1", "V3"),
+			attribute.String("R2", "V4")),
 	}
 
 	for _, tc := range testCases {

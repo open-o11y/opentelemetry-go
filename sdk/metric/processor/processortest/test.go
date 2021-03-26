@@ -21,12 +21,12 @@ import (
 	"sync"
 	"time"
 
-	"go.opentelemetry.io/otel/label"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/metric/number"
 	export "go.opentelemetry.io/otel/sdk/export/metric"
 	"go.opentelemetry.io/otel/sdk/export/metric/aggregation"
-	"go.opentelemetry.io/otel/sdk/metric/aggregator/array"
-	"go.opentelemetry.io/otel/sdk/metric/aggregator/ddsketch"
+	"go.opentelemetry.io/otel/sdk/metric/aggregator/exact"
 	"go.opentelemetry.io/otel/sdk/metric/aggregator/histogram"
 	"go.opentelemetry.io/otel/sdk/metric/aggregator/lastvalue"
 	"go.opentelemetry.io/otel/sdk/metric/aggregator/minmaxsumcount"
@@ -40,14 +40,14 @@ type (
 	// attributes.
 	mapKey struct {
 		desc     *metric.Descriptor
-		labels   label.Distinct
-		resource label.Distinct
+		labels   attribute.Distinct
+		resource attribute.Distinct
 	}
 
 	// mapValue is value stored in a processor used to produce a
 	// CheckpointSet.
 	mapValue struct {
-		labels     *label.Set
+		labels     *attribute.Set
 		resource   *resource.Resource
 		aggregator export.Aggregator
 	}
@@ -55,7 +55,7 @@ type (
 	// Output implements export.CheckpointSet.
 	Output struct {
 		m            map[mapKey]mapValue
-		labelEncoder label.Encoder
+		labelEncoder attribute.Encoder
 		sync.RWMutex
 	}
 
@@ -101,7 +101,7 @@ type (
 //
 // Where in the example A=1,B=2 is the encoded labels and R=V is the
 // encoded resource value.
-func NewProcessor(selector export.AggregatorSelector, encoder label.Encoder) *Processor {
+func NewProcessor(selector export.AggregatorSelector, encoder attribute.Encoder) *Processor {
 	return &Processor{
 		AggregatorSelector: selector,
 		output:             NewOutput(encoder),
@@ -183,18 +183,13 @@ func (testAggregatorSelector) AggregatorFor(desc *metric.Descriptor, aggPtrs ...
 		for i := range aggPtrs {
 			*aggPtrs[i] = &aggs[i]
 		}
-	case strings.HasSuffix(desc.Name(), ".sketch"):
-		aggs := ddsketch.New(len(aggPtrs), desc, ddsketch.NewDefaultConfig())
-		for i := range aggPtrs {
-			*aggPtrs[i] = &aggs[i]
-		}
 	case strings.HasSuffix(desc.Name(), ".histogram"):
-		aggs := histogram.New(len(aggPtrs), desc, nil)
+		aggs := histogram.New(len(aggPtrs), desc)
 		for i := range aggPtrs {
 			*aggPtrs[i] = &aggs[i]
 		}
 	case strings.HasSuffix(desc.Name(), ".exact"):
-		aggs := array.New(len(aggPtrs))
+		aggs := exact.New(len(aggPtrs))
 		for i := range aggPtrs {
 			*aggPtrs[i] = &aggs[i]
 		}
@@ -207,7 +202,7 @@ func (testAggregatorSelector) AggregatorFor(desc *metric.Descriptor, aggPtrs ...
 // (from an Accumulator) or an expected set of Records (from a
 // Processor).  If testing with an Accumulator, it may be simpler to
 // use the test Processor in this package.
-func NewOutput(labelEncoder label.Encoder) *Output {
+func NewOutput(labelEncoder attribute.Encoder) *Output {
 	return &Output{
 		m:            make(map[mapKey]mapValue),
 		labelEncoder: labelEncoder,
@@ -260,21 +255,28 @@ func (o *Output) AddRecord(rec export.Record) error {
 func (o *Output) Map() map[string]float64 {
 	r := make(map[string]float64)
 	err := o.ForEach(export.StatelessExportKindSelector(), func(record export.Record) error {
-		for key, value := range o.m {
-			encoded := value.labels.Encoded(o.labelEncoder)
-			rencoded := value.resource.Encoded(o.labelEncoder)
-			number := 0.0
-			if s, ok := value.aggregator.(aggregation.Sum); ok {
+		for key, entry := range o.m {
+			encoded := entry.labels.Encoded(o.labelEncoder)
+			rencoded := entry.resource.Encoded(o.labelEncoder)
+			value := 0.0
+			if s, ok := entry.aggregator.(aggregation.Sum); ok {
 				sum, _ := s.Sum()
-				number = sum.CoerceToFloat64(key.desc.NumberKind())
-			} else if l, ok := value.aggregator.(aggregation.LastValue); ok {
+				value = sum.CoerceToFloat64(key.desc.NumberKind())
+			} else if l, ok := entry.aggregator.(aggregation.LastValue); ok {
 				last, _, _ := l.LastValue()
-				number = last.CoerceToFloat64(key.desc.NumberKind())
+				value = last.CoerceToFloat64(key.desc.NumberKind())
+			} else if l, ok := entry.aggregator.(aggregation.Points); ok {
+				pts, _ := l.Points()
+				var sum number.Number
+				for _, s := range pts {
+					sum.AddNumber(key.desc.NumberKind(), s.Number)
+				}
+				value = sum.CoerceToFloat64(key.desc.NumberKind())
 			} else {
-				panic(fmt.Sprintf("Unhandled aggregator type: %T", value.aggregator))
+				panic(fmt.Sprintf("Unhandled aggregator type: %T", entry.aggregator))
 			}
 			name := fmt.Sprint(key.desc.Name(), "/", encoded, "/", rencoded)
-			r[name] = number
+			r[name] = value
 		}
 		return nil
 	})
@@ -316,7 +318,7 @@ func (o *Output) AddAccumulation(acc export.Accumulation) error {
 //
 // Where in the example A=1,B=2 is the encoded labels and R=V is the
 // encoded resource value.
-func NewExporter(selector export.ExportKindSelector, encoder label.Encoder) *Exporter {
+func NewExporter(selector export.ExportKindSelector, encoder attribute.Encoder) *Exporter {
 	return &Exporter{
 		ExportKindSelector: selector,
 		output:             NewOutput(encoder),
