@@ -236,30 +236,30 @@ func isStableVersion(v string) bool {
 func main() {
 	repoRoot, err := findRepoRoot()
 	if err != nil {
-		log.Fatalf("unable to find repo root: #{err}")
+		log.Fatalf("unable to find repo root: %v", err)
 	}
 
 	modSetMap, err := buildModuleSetsMap(repoRoot)
 	if err != nil {
-		log.Fatalf("unable to build module sets map: #{err}")
+		log.Fatalf("unable to build module sets map: %v", err)
 	}
 
 	modInfoMap, err := buildModuleMap(modSetMap)
 	if err != nil {
-		log.Fatalf("unable to build module info map: #{err}")
+		log.Fatalf("unable to build module info map: %v", err)
 	}
 
 	modPathMap, err := buildModulePathMap(repoRoot)
 	if err != nil {
-		log.Fatalf("unable to build module path map: #{err}")
+		log.Fatalf("unable to build module path map: %v", err)
 	}
 
 	if err = verifyAllModulesInSet(modPathMap, modInfoMap); err != nil {
-		log.Fatalf("verifyAllModulesInSet failed: #{err}")
+		log.Fatalf("verifyAllModulesInSet failed: %v", err)
 	}
 
 	if err = verifyVersions(modSetMap); err != nil {
-		log.Fatalf("verifyVersions failed: #{err}")
+		log.Fatalf("verifyVersions failed: %v", err)
 	}
 
 	fmt.Println("PASS: Module sets successfully verified.")
