@@ -25,6 +25,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	flag "github.com/spf13/pflag"
 	"io/fs"
 	"io/ioutil"
 	"log"
@@ -39,9 +40,25 @@ import (
 )
 
 const (
-	versionsConfigName = "versions"
-	versionsConfigType = "yaml"
+	defaultVersionsConfigName = "versions"
+	defaultVersionsConfigType = "yaml"
 )
+
+type config struct {
+	versioningFile	string
+}
+
+func validateConfig(cfg config) (config, error) {
+	if cfg.versioningFile == "" {
+		repoRoot, err := findRepoRoot()
+		if err != nil {
+			return config{}, fmt.Errorf("Could not find repo root: %v", err)
+		}
+		cfg.versioningFile = filepath.Join(repoRoot,
+			fmt.Sprintf("%v.%v", defaultVersionsConfigName, defaultVersionsConfigType))
+	}
+	return cfg, nil
+}
 
 // versionConfig is needed to parse the versions.yaml file with viper
 type versionConfig struct {
@@ -97,10 +114,12 @@ func findRepoRoot() (string, error) {
 }
 
 // buildModuleSetsMap creates a versionConfig struct holding all module sets.
-func buildModuleSetsMap(root string) (moduleSetMap, error) {
-	viper.AddConfigPath(root)
-	viper.SetConfigName(versionsConfigName)
-	viper.SetConfigType(versionsConfigType)
+func buildModuleSetsMap(versioningFilename string) (moduleSetMap, error) {
+	viper.AddConfigPath(filepath.Dir(versioningFilename))
+	fileExt := filepath.Ext(versioningFilename)
+	fileBaseWithoutExt := strings.TrimSuffix(filepath.Base(versioningFilename), fileExt)
+	viper.SetConfigName(fileBaseWithoutExt)
+	viper.SetConfigType(strings.TrimPrefix(fileExt, "."))
 
 	var versionCfg versionConfig
 
@@ -234,12 +253,31 @@ func isStableVersion(v string) bool {
 }
 
 func main() {
+	// Plain log output, no timestamps.
+	log.SetFlags(0)
+
+	cfg := config{}
+
+	flag.StringVarP(&cfg.versioningFile, "versioning-file", "v", "",
+		"Path to versioning file that contains definitions of all module sets. " +
+			fmt.Sprintf("If unspecified will default to (RepoRoot)/%v.%v",
+				defaultVersionsConfigName, defaultVersionsConfigType,),
+	)
+	flag.Parse()
+
+	cfg, err := validateConfig(cfg)
+	if err != nil {
+		fmt.Println(err)
+		flag.Usage()
+		os.Exit(-1)
+	}
+
 	repoRoot, err := findRepoRoot()
 	if err != nil {
 		log.Fatalf("unable to find repo root: %v", err)
 	}
 
-	modSetMap, err := buildModuleSetsMap(repoRoot)
+	modSetMap, err := buildModuleSetsMap(cfg.versioningFile)
 	if err != nil {
 		log.Fatalf("unable to build module sets map: %v", err)
 	}
