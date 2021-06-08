@@ -13,17 +13,16 @@
 // limitations under the License.
 
 // This verify_versioning script is called after manually editing the
-// versions.yaml file to verify that all modules have been correctly
-// included in sets.
+// module set versioning file to verify that all modules have been correctly
+// included in sets. If no versioning is specified, the default versioning
+// file path will be used: (RepoRoot)/versions.yaml.
 //
-// This script must be called before running the
-// pre-release and tagging scripts which update versions based on
-// versions.yaml.
+// This script must be called before running the pre-release and tagging
+// scripts which update versions based on the versioning file.
 
 package main
 
 import (
-	"errors"
 	"fmt"
 	flag "github.com/spf13/pflag"
 	"io/fs"
@@ -37,6 +36,8 @@ import (
 	"golang.org/x/mod/semver"
 
 	"github.com/spf13/viper"
+
+	"go.opentelemetry.io/otel/internal/tools/common"
 )
 
 const (
@@ -50,7 +51,7 @@ type config struct {
 
 func validateConfig(cfg config) (config, error) {
 	if cfg.versioningFile == "" {
-		repoRoot, err := findRepoRoot()
+		repoRoot, err := common.FindRepoRoot()
 		if err != nil {
 			return config{}, fmt.Errorf("Could not find repo root: %v", err)
 		}
@@ -85,33 +86,6 @@ type moduleInfoMap map[modulePath]moduleInfo
 type moduleFilePath string
 
 type modulePathMap map[modulePath]moduleFilePath
-
-func findRepoRoot() (string, error) {
-	start, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-
-	dir := start
-	for {
-		_, err := os.Stat(filepath.Join(dir, ".git"))
-		if errors.Is(err, os.ErrNotExist) {
-			dir = filepath.Dir(dir)
-			// From https://golang.org/pkg/path/filepath/#Dir:
-			// The returned path does not end in a separator unless it is the root directory.
-			if strings.HasSuffix(dir, string(filepath.Separator)) {
-				return "", fmt.Errorf("unable to find git repository enclosing working dir %s", start)
-			}
-			continue
-		}
-
-		if err != nil {
-			return "", err
-		}
-
-		return dir, nil
-	}
-}
 
 // buildModuleSetsMap creates a versionConfig struct holding all module sets.
 func buildModuleSetsMap(versioningFilename string) (moduleSetMap, error) {
@@ -272,7 +246,7 @@ func main() {
 		os.Exit(-1)
 	}
 
-	repoRoot, err := findRepoRoot()
+	repoRoot, err := common.FindRepoRoot()
 	if err != nil {
 		log.Fatalf("unable to find repo root: %v", err)
 	}
