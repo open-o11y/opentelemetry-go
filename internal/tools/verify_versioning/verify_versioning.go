@@ -23,11 +23,14 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"io/ioutil"
 	"log"
+	"os"
 	"path/filepath"
+	"strings"
 
 	"golang.org/x/mod/modfile"
 	"golang.org/x/mod/semver"
@@ -37,7 +40,6 @@ import (
 
 const (
 	versionsConfigName = "versions"
-	versionsConfigPath = "./"
 	versionsConfigType = "yaml"
 )
 
@@ -67,9 +69,36 @@ type moduleFilePath string
 
 type modulePathMap map[modulePath]moduleFilePath
 
+func findRepoRoot() (string, error) {
+	start, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+
+	dir := start
+	for {
+		_, err := os.Stat(filepath.Join(dir, ".git"))
+		if errors.Is(err, os.ErrNotExist) {
+			dir = filepath.Dir(dir)
+			// From https://golang.org/pkg/path/filepath/#Dir:
+			// The returned path does not end in a separator unless it is the root directory.
+			if strings.HasSuffix(dir, string(filepath.Separator)) {
+				return "", fmt.Errorf("unable to find git repository enclosing working dir %s", start)
+			}
+			continue
+		}
+
+		if err != nil {
+			return "", err
+		}
+
+		return dir, nil
+	}
+}
+
 // buildModuleSetsMap creates a versionConfig struct holding all module sets.
-func buildModuleSetsMap() (moduleSetMap, error) {
-	viper.AddConfigPath(versionsConfigPath)
+func buildModuleSetsMap(root string) (moduleSetMap, error) {
+	viper.AddConfigPath(root)
 	viper.SetConfigName(versionsConfigName)
 	viper.SetConfigType(versionsConfigType)
 
@@ -106,7 +135,7 @@ func buildModuleMap(modSetMap moduleSetMap) (moduleInfoMap, error) {
 }
 
 // buildModulePathMap creates a map with module paths as keys and go.mod file paths as values.
-func buildModulePathMap() (modulePathMap, error) {
+func buildModulePathMap(root string) (modulePathMap, error) {
 	// TODO: handle contrib repo
 	modPathMap := make(modulePathMap)
 
@@ -134,7 +163,7 @@ func buildModulePathMap() (modulePathMap, error) {
 		return nil
 	}
 
-	if err := filepath.Walk("./", findGoMod); err != nil {
+	if err := filepath.Walk(string(root), findGoMod); err != nil {
 		return nil, err
 	}
 
@@ -205,12 +234,12 @@ func isStableVersion(v string) bool {
 }
 
 func main() {
-	//repoRoot, err := findRepoRoot()
-	//if err != nil {
-	//	log.Fatalf("unable to find repo root: #{err}")
-	//}
+	repoRoot, err := findRepoRoot()
+	if err != nil {
+		log.Fatalf("unable to find repo root: #{err}")
+	}
 
-	modSetMap, err := buildModuleSetsMap()
+	modSetMap, err := buildModuleSetsMap(repoRoot)
 	if err != nil {
 		log.Fatalf("unable to build module sets map: #{err}")
 	}
@@ -220,7 +249,7 @@ func main() {
 		log.Fatalf("unable to build module info map: #{err}")
 	}
 
-	modPathMap, err := buildModulePathMap()
+	modPathMap, err := buildModulePathMap(repoRoot)
 	if err != nil {
 		log.Fatalf("unable to build module path map: #{err}")
 	}
