@@ -30,6 +30,7 @@ moduleSets:
       - go.opentelemetry.io/otel/exporters/otlp
       - go.opentelemetry.io/otel/exporters/otlp/otlptrace
       - go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc
+      - go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp
       - go.opentelemetry.io/otel/exporters/trace/jaeger
       - go.opentelemetry.io/otel/exporters/trace/zipkin
       - go.opentelemetry.io/otel/exporters/stdout
