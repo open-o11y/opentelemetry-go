@@ -25,17 +25,10 @@ package main
 import (
 	"fmt"
 	flag "github.com/spf13/pflag"
-	"io/fs"
-	"io/ioutil"
+	"golang.org/x/mod/semver"
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
-
-	"golang.org/x/mod/modfile"
-	"golang.org/x/mod/semver"
-
-	"github.com/spf13/viper"
 
 	"go.opentelemetry.io/otel/internal/tools/common"
 )
@@ -61,113 +54,11 @@ func validateConfig(cfg config) (config, error) {
 	return cfg, nil
 }
 
-// versionConfig is needed to parse the versions.yaml file with viper
-type versionConfig struct {
-	ModuleSets moduleSetMap `mapstructure:"moduleSets"`
-}
-
-type moduleSetMap map[string]moduleSet
-
-type moduleSet struct {
-	Version	string			`mapstructure:"version"`
-	Modules	[]modulePath	`mapstructure:"modules"`
-}
-
-type modulePath string
-
-type moduleInfo struct {
-	ModuleSetName	string
-	Version 		string
-}
-
-type moduleInfoMap map[modulePath]moduleInfo
-
-// moduleFilePath includes the base file name ("go.mod").
-type moduleFilePath string
-
-type modulePathMap map[modulePath]moduleFilePath
-
-// buildModuleSetsMap creates a versionConfig struct holding all module sets.
-func buildModuleSetsMap(versioningFilename string) (moduleSetMap, error) {
-	viper.AddConfigPath(filepath.Dir(versioningFilename))
-	fileExt := filepath.Ext(versioningFilename)
-	fileBaseWithoutExt := strings.TrimSuffix(filepath.Base(versioningFilename), fileExt)
-	viper.SetConfigName(fileBaseWithoutExt)
-	viper.SetConfigType(strings.TrimPrefix(fileExt, "."))
-
-	var versionCfg versionConfig
-
-	if err := viper.ReadInConfig(); err != nil {
-		return nil, fmt.Errorf("Error reading versionsConfig file: %s", err)
-	}
-
-	if err := viper.Unmarshal(&versionCfg); err != nil {
-		return nil, fmt.Errorf("Unable to decode versionsConfig: %s", err)
-	}
-
-	return versionCfg.ModuleSets, nil
-}
-
-// buildModuleMap creates a map with module paths as keys and their moduleInfo as values.
-func buildModuleMap(modSetMap moduleSetMap) (moduleInfoMap, error) {
-	modMap := make(moduleInfoMap)
-	var modPath modulePath
-
-	for setName, moduleSet := range modSetMap {
-		for _, modPath = range moduleSet.Modules {
-			// Check if module has already been added to the map
-			if _, exists := modMap[modPath]; exists {
-				return nil, fmt.Errorf("Module %v exists more than once. Exists in sets %v and %v.",
-					modPath, modMap[modPath].ModuleSetName, setName)
-			}
-			modMap[modPath] = moduleInfo{setName, moduleSet.Version}
-		}
-	}
-
-	return modMap, nil
-}
-
-// buildModulePathMap creates a map with module paths as keys and go.mod file paths as values.
-func buildModulePathMap(root string) (modulePathMap, error) {
-	// TODO: handle contrib repo
-	modPathMap := make(modulePathMap)
-
-	findGoMod := func(fPath string, info fs.FileInfo, err error) error {
-		if err != nil {
-			fmt.Printf("Warning: file could not be read during filepath.Walk(): %v", err)
-			return nil
-		}
-		if filepath.Base(fPath) == "go.mod" {
-			// read go.mod file into mod []byte
-			mod, err := ioutil.ReadFile(fPath)
-			if err != nil {
-				return err
-			}
-
-			// read path of module from go.mod file
-			mPath := modfile.ModulePath(mod)
-
-			// convert mPath, fPath string to modulePath and moduleFilePath
-			modPath := modulePath(mPath)
-			modFilePath := moduleFilePath(fPath)
-
-			modPathMap[modPath] = modFilePath
-		}
-		return nil
-	}
-
-	if err := filepath.Walk(string(root), findGoMod); err != nil {
-		return nil, err
-	}
-
-	return modPathMap, nil
-}
-
 // verifyAllModulesInSet checks that every module (as defined by a go.mod file) is contained in exactly one module set.
-func verifyAllModulesInSet(modPathMap modulePathMap, modInfoMap moduleInfoMap) error {
+func verifyAllModulesInSet(modPathMap common.ModulePathMap, modInfoMap common.ModuleInfoMap) error {
 	// Note: This could be simplified by doing a set comparison between the keys in modInfoMap
 	// and the values of modulePathMap.
-	for modPath, modFilePath := range(modPathMap) {
+	for modPath, modFilePath := range modPathMap {
 		if _, exists := modInfoMap[modPath]; !exists {
 			return fmt.Errorf("Module %v (defined in %v) is not contained in any module set.",
 				modPath, string(modFilePath),
@@ -188,7 +79,7 @@ func verifyAllModulesInSet(modPathMap modulePathMap, modInfoMap moduleInfoMap) e
 }
 
 // verifyVersions checks that module set versions conform to versioning semantics.
-func verifyVersions(modSetMap moduleSetMap) error {
+func verifyVersions(modSetMap common.ModuleSetMap) error {
 	// setMajorVersions keeps track of all sets' major versions, used to check for multiple sets
 	// with the same non-zero major version.
 	setMajorVersions := make(map[string]string)
@@ -246,22 +137,22 @@ func main() {
 		os.Exit(-1)
 	}
 
-	repoRoot, err := common.FindRepoRoot()
-	if err != nil {
-		log.Fatalf("unable to find repo root: %v", err)
-	}
-
-	modSetMap, err := buildModuleSetsMap(cfg.versioningFile)
+	modSetMap, err := common.BuildModuleSetsMap(cfg.versioningFile)
 	if err != nil {
 		log.Fatalf("unable to build module sets map: %v", err)
 	}
 
-	modInfoMap, err := buildModuleMap(modSetMap)
+	modInfoMap, err := common.BuildModuleMap(cfg.versioningFile)
 	if err != nil {
 		log.Fatalf("unable to build module info map: %v", err)
 	}
 
-	modPathMap, err := buildModulePathMap(repoRoot)
+	coreRepoRoot, err := common.FindRepoRoot()
+	if err != nil {
+		log.Fatalf("unable to find repo root: %v", err)
+	}
+
+	modPathMap, err := common.BuildModulePathMap(coreRepoRoot)
 	if err != nil {
 		log.Fatalf("unable to build module path map: %v", err)
 	}
