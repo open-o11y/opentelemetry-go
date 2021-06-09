@@ -152,7 +152,7 @@ func main() {
 		log.Fatalf("unable to find repo root: %v", err)
 	}
 
-	modPathMap, err := common.BuildModulePathMap(coreRepoRoot)
+	modPathMap, err := common.BuildModulePathMap(cfg.versioningFile, coreRepoRoot)
 	if err != nil {
 		log.Fatalf("unable to build module path map: %v", err)
 	}
