@@ -206,34 +206,46 @@ func VersionsAndModsToUpdate(versioningFilename string, modSetName string, repoR
 		return "", nil, fmt.Errorf("could not find module set %v in versioning file", modSetName)
 	}
 
+	modPathMap, err := BuildModulePathMap(versioningFilename, repoRoot)
+	if err != nil {
+		return "", nil, fmt.Errorf("unable to build module path map: %v", err)
+	}
+
 	newVersion := modSet.Version
 	modPaths := modSet.Modules
-	modFilePaths := ModulePathsToFilePaths(modPaths)
-	modTagNames := ModuleFilePathsToTagNames(modFilePaths, coreRepoRoot)
+	modFilePaths, err := modulePathsToFilePaths(modPaths, modPathMap)
+	if err != nil {
+		return "", nil, fmt.Errorf("could not convert module paths to file paths: %v", err)
+	}
+	modTagNames, err := moduleFilePathsToTagNames(modFilePaths, repoRoot)
+	if err != nil {
+		return "", nil, fmt.Errorf("could not convert module file paths to tag names: %v", err)
+	}
 
 	return newVersion, modTagNames, nil
 }
 
-// ModulePathsToFilePaths returns a list of absolute file paths from a list of module's import paths.
-func ModuleFilePathsToTagName(modFilePaths []ModulePath) ([]ModuleTagName, error) {
-	var modNames []ModuleTagName
+// modulePathsToFilePaths returns a list of absolute file paths from a list of module's import paths.
+func modulePathsToFilePaths(modPaths []ModulePath, modPathMap ModulePathMap) ([]ModuleFilePath, error) {
+	var modFilePaths []ModuleFilePath
 
-	for _, modFilePath := range modFilePaths {
-		modNames = append(modNames,
-			ModuleTagName(strings.TrimPrefix(string(modFilePath), repoRoot + "/")))
+	for _, modPath := range modPaths {
+		modFilePaths = append(modFilePaths, modPathMap[modPath])
 	}
 
-	return modNames, nil
+	return modFilePaths, nil
 }
 
 // ModuleFilePathToTagName returns the module tag names of an input ModuleFilePath
 // by removing the repoRoot prefix from the ModuleFilePath.
 func ModuleFilePathToTagName(modFilePath ModuleFilePath, repoRoot string) (ModuleTagName, error) {
-	modTagName := ModuleTagName(strings.TrimPrefix(string(modFilePath), repoRoot + "/"))
-	if string(modTagName) == string(modFilePath) {
+	modTagNameWithGoMod := strings.TrimPrefix(string(modFilePath), repoRoot + "/")
+	modTagName := strings.TrimSuffix(modTagNameWithGoMod, "/go.mod")
+
+	if modTagName == string(modFilePath) {
 		return "", fmt.Errorf("modFilePath %v does not contain the repo root prefix %v", modFilePath, repoRoot)
 	}
-	return modTagName, nil
+	return ModuleTagName(modTagName), nil
 }
 
 // moduleFilePathsToTagNames returns a list of module tag names from the input full module file paths
@@ -242,7 +254,7 @@ func moduleFilePathsToTagNames(modFilePaths []ModuleFilePath, repoRoot string) (
 	var modNames []ModuleTagName
 
 	for _, modFilePath := range modFilePaths {
-		modTagName, err := ModuleFilePathToTagName(modFilePath)
+		modTagName, err := ModuleFilePathToTagName(modFilePath, repoRoot)
 		if err != nil {
 			return nil, fmt.Errorf("could not convert module file path to tag name: %v", err)
 		}

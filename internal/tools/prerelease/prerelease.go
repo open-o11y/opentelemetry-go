@@ -26,7 +26,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 
 	flag "github.com/spf13/pflag"
 
@@ -62,11 +64,29 @@ func validateConfig(cfg config) (config, error) {
 	return cfg, nil
 }
 
-func verifyGitTagsDoNotAlreadyExist() error {
+func verifyGitTagsDoNotAlreadyExist(newVersion string, modTags []common.ModuleTagName, coreRepoRoot string) error {
+	for _, modTag := range modTags {
+		tagSearchString := string(modTag) + "/" + newVersion
+		cmd := exec.Command("git", "tag", "-l", tagSearchString)
+		output, err := cmd.Output()
+		if err != nil {
+			return fmt.Errorf("could not execute git tag -l %v: %v", tagSearchString, err)
+		}
+		outputTag := strings.TrimSpace(string(output))
+		if outputTag == tagSearchString {
+			return fmt.Errorf("git tag already exists for %v", tagSearchString)
+		}
+	}
+
 	return nil
 }
 
 func verifyWorkingTreenClean() error {
+	cmd := exec.Command("git", "diff", "-quiet")
+	_, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("Working tree is not clean, can't proceed with the release process: %v", err)
+	}
 	return nil
 }
 
@@ -104,16 +124,19 @@ func main() {
 		os.Exit(-1)
 	}
 
-	modSetMap, err := common.BuildModuleSetsMap(cfg.versioningFile)
+	coreRepoRoot, err := common.FindRepoRoot()
 	if err != nil {
-		log.Fatalf("unable to build module sets map: %v", err)
+		log.Fatalf("unable to find repo root: %v", err)
 	}
 
-	newVersion, modsToUpdate := modSetMap[cfg.moduleSet]
-	fmt.Println(newVersion, modsToUpdate)
+	// get new version and mod tags to update
+	newVersion, newModTags, err := common.VersionsAndModsToUpdate(cfg.versioningFile, cfg.moduleSet, coreRepoRoot)
+	if err != nil {
+		log.Fatalf("unable to get modules to update: %v", err)
+	}
 
 	// check if git tag already exists for any module listed in the set
-	if err = verifyGitTagsDoNotAlreadyExist(); err != nil {
+	if err = verifyGitTagsDoNotAlreadyExist(newVersion, newModTags, coreRepoRoot); err != nil {
 			log.Fatalf("verifyGitTagsDoNotAlreadyExist failed: %v", err)
 	}
 
@@ -146,6 +169,6 @@ func main() {
 		log.Fatalf("commitChanges failed: %v", err)
 	}
 
-	fmt.Println("Now run the following to verify the changes:\ngitdiffmain")
+	fmt.Println("\nPrerelease finished successfully.\nNow run the following to verify the changes:\ngit diff main")
 	fmt.Println("Then, push the changes to upstream.")
 }
