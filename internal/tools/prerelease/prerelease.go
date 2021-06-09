@@ -81,11 +81,14 @@ func verifyGitTagsDoNotAlreadyExist(newVersion string, modTags []common.ModuleTa
 	return nil
 }
 
-func verifyWorkingTreenClean() error {
-	cmd := exec.Command("git", "diff", "-quiet")
-	_, err := cmd.Output()
+func verifyWorkingTreeClean() error {
+	cmd := exec.Command("git", "diff", "--exit-code")
+	output, err := cmd.Output()
+
 	if err != nil {
-		return fmt.Errorf("Working tree is not clean, can't proceed with the release process: %v", err)
+		return fmt.Errorf("Working tree is not clean, can't proceed with the release process:\n\n%v",
+			string(output),
+		)
 	}
 	return nil
 }
@@ -141,8 +144,8 @@ func main() {
 	}
 
 	// check if working tree is clean (if not, can't proceed with release process)
-	if err = verifyWorkingTreenClean(); err != nil {
-		log.Fatalf("verifyWorkingTreenClean failed: %v", err)
+	if err = verifyWorkingTreeClean(); err != nil {
+		log.Fatalf("verifyWorkingTreeClean failed: %v", err)
 	}
 
 	// what to do with version.go?
