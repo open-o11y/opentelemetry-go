@@ -12,14 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package matchers
+package baggage
 
-type TemporalMatcher byte
+import (
+	"context"
+	"testing"
 
-//nolint:revive // ignoring missing comments for unexported constants in an internal package
-const (
-	Before TemporalMatcher = iota
-	BeforeOrSameTime
-	After
-	AfterOrSameTime
+	"github.com/stretchr/testify/assert"
+
+	"go.opentelemetry.io/otel/internal/baggage"
 )
+
+func TestContext(t *testing.T) {
+	ctx := context.Background()
+	assert.Equal(t, Baggage{}, FromContext(ctx))
+
+	b := Baggage{list: baggage.List{"key": baggage.Item{Value: "val"}}}
+	ctx = ContextWithBaggage(ctx, b)
+	assert.Equal(t, b, FromContext(ctx))
+
+	ctx = ContextWithoutBaggage(ctx)
+	assert.Equal(t, Baggage{}, FromContext(ctx))
+}
