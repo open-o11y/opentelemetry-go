@@ -64,6 +64,8 @@ func validateConfig(cfg config) (config, error) {
 	return cfg, nil
 }
 
+// verifyGitTagsDoNotAlreadyExist checks if Git tags have already been created that match the specific module tag name
+// and version number for the modules being updated. If the tag already exists, an error is returned.
 func verifyGitTagsDoNotAlreadyExist(newVersion string, modTags []common.ModuleTagName, coreRepoRoot string) error {
 	for _, modTag := range modTags {
 		tagSearchString := string(modTag) + "/" + newVersion
@@ -81,19 +83,40 @@ func verifyGitTagsDoNotAlreadyExist(newVersion string, modTags []common.ModuleTa
 	return nil
 }
 
+// verifyWorkingTreeClean checks if the working tree is clean (i.e. running 'git diff --exit-code' gives exit code 0).
+// If the working tree is not clean, the git diff output is printed, and an error is returned.
 func verifyWorkingTreeClean() error {
 	cmd := exec.Command("git", "diff", "--exit-code")
 	output, err := cmd.Output()
 
 	if err != nil {
-		return fmt.Errorf("Working tree is not clean, can't proceed with the release process:\n\n%v",
+		return fmt.Errorf("working tree is not clean, can't proceed with the release process:\n\n%v",
 			string(output),
 		)
 	}
 	return nil
 }
 
+func createPrereleaseBranch(newVersion string) error {
+	branchName := "pre_release_" + newVersion
+	cmd := exec.Command("git", "checkout", "-b", branchName, "main")
+	output, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("could not create new branch %v: %v", branchName, err)
+	}
+	fmt.Println(output)
+	return nil
+}
+
+func updateVersionGo() error {
+	return nil
+}
+
+// find all go.mod files
+// update all go.mod dependencies to use new versions
+// TODO: figure out how to update module path for semantic import versioning
 func updateGoModFiles() error {
+
 	return nil
 }
 
@@ -138,22 +161,23 @@ func main() {
 		log.Fatalf("unable to get modules to update: %v", err)
 	}
 
-	// check if git tag already exists for any module listed in the set
 	if err = verifyGitTagsDoNotAlreadyExist(newVersion, newModTags, coreRepoRoot); err != nil {
 			log.Fatalf("verifyGitTagsDoNotAlreadyExist failed: %v", err)
 	}
 
-	// check if working tree is clean (if not, can't proceed with release process)
 	if err = verifyWorkingTreeClean(); err != nil {
 		log.Fatalf("verifyWorkingTreeClean failed: %v", err)
 	}
 
-	// what to do with version.go?
+	if err = createPrereleaseBranch(newVersion); err != nil {
+		log.Fatalf("createPrereleaseBranch failed: %v", err)
+	}
 
-	// create branch pre_release_<TAG>
-	// find all go.mod files
-	// update all go.mod dependencies to use new versions
-	// TODO: figure out how to update module path for semantic import versioning
+	// TODO: what to do with version.go and references to otel.Version()
+	if err = updateVersionGo(); err != nil {
+		log.Fatalf("updateVersionGo failed: %v", err)
+	}
+
 	if err = updateGoModFiles(); err != nil {
 		log.Fatalf("updateGoModFiles failed: %v", err)
 	}
