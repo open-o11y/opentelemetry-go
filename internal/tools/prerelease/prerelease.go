@@ -39,8 +39,8 @@ const (
 )
 
 type config struct {
-	VersioningFile string
-	ModuleSet      string
+	VersioningFile 	string
+	ModuleSet      	string
 }
 
 func validateConfig(cfg config) (config, error) {
@@ -221,12 +221,12 @@ func main() {
 	os.Chdir(coreRepoRoot)
 
 	// get new version and mod tags to update
-	newVersion, newModPaths, newModTags, err := tools.VersionsAndModsToUpdate(cfg.VersioningFile, cfg.ModuleSet, coreRepoRoot)
+	newVersion, newModPaths, newModTagNames, err := tools.VersionsAndModsToUpdate(cfg.VersioningFile, cfg.ModuleSet, coreRepoRoot)
 	if err != nil {
 		log.Fatalf("unable to get modules to update: %v", err)
 	}
 
-	if err = verifyGitTagsDoNotAlreadyExist(newVersion, newModTags, coreRepoRoot); err != nil {
+	if err = verifyGitTagsDoNotAlreadyExist(newVersion, newModTagNames, coreRepoRoot); err != nil {
 			log.Fatalf("verifyGitTagsDoNotAlreadyExist failed: %v", err)
 	}
 
