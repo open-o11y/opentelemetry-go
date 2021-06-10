@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// This prerelease script creates a new branch pre_release_<new tag> that
+// This prerelease script creates a new branch pre_release_<module set name>_<new tag> that
 // will contain all release changes, including updated version numbers.
 // This is to be used after the verify_release script has successfully
 // verified that the versioning of module sets is valid.
@@ -98,7 +98,7 @@ func verifyWorkingTreeClean() error {
 	return nil
 }
 
-func createPrereleaseBranch(newVersion string) error {
+func createPrereleaseBranch(modSet, newVersion string) error {
 	branchName := "pre_release_" + newVersion
 	cmd := exec.Command("git", "checkout", "-b", branchName, "main")
 	_, err := cmd.Output()
@@ -234,7 +234,7 @@ func main() {
 		log.Fatalf("verifyWorkingTreeClean failed: %v", err)
 	}
 
-	if err = createPrereleaseBranch(newVersion); err != nil {
+	if err = createPrereleaseBranch(cfg.moduleSet, newVersion); err != nil {
 		log.Fatalf("createPrereleaseBranch failed: %v", err)
 	}
 
