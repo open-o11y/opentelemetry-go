@@ -25,11 +25,12 @@ package main
 import (
 	"fmt"
 	"go.opentelemetry.io/otel/internal/tools"
-	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	flag "github.com/spf13/pflag"
@@ -113,38 +114,44 @@ func updateVersionGo() error {
 	return nil
 }
 
-func copyFile(dst, src string) error {
-	in, err := os.Open(src)
-	if err != nil {
-		return fmt.Errorf("copying error: error opening %v: %v", src, err)
-	}
-	defer in.Close()
-
-	out, err := os.Create(dst)
-	if err != nil {
-		return fmt.Errorf("copying error: error creating %v: %v", out, err)
-	}
-	defer out.Close()
-
-	_, err = io.Copy(out, in)
-	if err != nil {
-		return fmt.Errorf("copying error", err)
-	}
-	return out.Close()
+func filePathToRegex(fpath string) string {
+	replacedSlashes := strings.Replace(fpath, string(filepath.Separator), `\/`, -1)
+	replacedPeriods := strings.Replace(replacedSlashes, ".", `\.`, -1)
+	return replacedPeriods
 }
 
-// find all go.mod files
-// update all go.mod dependencies to use new versions
-// TODO: figure out how to update module path for semantic import versioning
-func updateGoModFiles(newVersion string,
-	newModPaths []tools.ModulePath,
-	modPathMap tools.ModulePathMap) error {
-	for _, modPath := range newModPaths {
-		goModFilePath := string(modPathMap[modPath])
-		fmt.Println("Editing", goModFilePath)
+// updateGoModVersions reads the fromFile (a go.mod file), replaces versions
+// for all specified modules in newModPaths, and writes the new go.mod to the toFile file.
+func updateGoModVersions(newVersion string, newModPaths []tools.ModulePath, modFilePath tools.ModuleFilePath) error {
+	newGoModFile, err := ioutil.ReadFile(string(modFilePath))
+	if err != nil {
+		panic(err)
+	}
 
-		if err := copyFile(goModFilePath + ".bak", goModFilePath); err != nil {
-			return fmt.Errorf("error making backup of %v: %v", goModFilePath, err)
+	for _, modPath := range newModPaths {
+		oldVersionRegex := filePathToRegex(string(modPath)) + ` v[0-9]*\.[0-9]*\.[0-9]`
+		r, err := regexp.Compile(oldVersionRegex)
+		if err != nil {
+			return fmt.Errorf("error compiling regex: %v", err)
+		}
+
+		newModVersionString := string(modPath) + " " + newVersion
+
+		newGoModFile = r.ReplaceAll(newGoModFile, []byte(newModVersionString))
+	}
+
+	// once all module versions have been updated, overwrite the go.mod file
+	ioutil.WriteFile(string(modFilePath), newGoModFile, 0644)
+
+	return nil
+}
+
+// updateAllGoModFiles updates ALL modules' requires sections to use the newVersion number
+// for the modules given in newModPaths.
+func updateAllGoModFiles(newVersion string, newModPaths []tools.ModulePath, modPathMap tools.ModulePathMap) error {
+	for _, modFilePath := range modPathMap {
+		if err := updateGoModVersions(newVersion, newModPaths, modFilePath); err != nil {
+			return fmt.Errorf("could not update module versions in file %v: %v", modFilePath, err)
 		}
 	}
 	return nil
@@ -195,13 +202,13 @@ func main() {
 			log.Fatalf("verifyGitTagsDoNotAlreadyExist failed: %v", err)
 	}
 
-	//if err = verifyWorkingTreeClean(); err != nil {
-	//	log.Fatalf("verifyWorkingTreeClean failed: %v", err)
-	//}
-	//
-	//if err = createPrereleaseBranch(newVersion); err != nil {
-	//	log.Fatalf("createPrereleaseBranch failed: %v", err)
-	//}
+	if err = verifyWorkingTreeClean(); err != nil {
+		log.Fatalf("verifyWorkingTreeClean failed: %v", err)
+	}
+
+	if err = createPrereleaseBranch(newVersion); err != nil {
+		log.Fatalf("createPrereleaseBranch failed: %v", err)
+	}
 
 	modPathMap, err := tools.BuildModulePathMap(cfg.versioningFile, coreRepoRoot)
 
@@ -210,8 +217,8 @@ func main() {
 		log.Fatalf("updateVersionGo failed: %v", err)
 	}
 
-	if err = updateGoModFiles(newVersion, newModPaths, modPathMap); err != nil {
-		log.Fatalf("updateGoModFiles failed: %v", err)
+	if err = updateAllGoModFiles(newVersion, newModPaths, modPathMap); err != nil {
+		log.Fatalf("updateAllGoModFiles failed: %v", err)
 	}
 
 	//# Run lint to update go.sum
