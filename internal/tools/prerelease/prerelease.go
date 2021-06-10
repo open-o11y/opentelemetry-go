@@ -144,6 +144,7 @@ func updateGoModVersions(newVersion string, newModPaths []tools.ModulePath, modF
 
 	// once all module versions have been updated, overwrite the go.mod file
 	ioutil.WriteFile(string(modFilePath), newGoModFile, 0644)
+	os.Stdout.Write(newGoModFile)
 
 	return nil
 }
@@ -162,7 +163,9 @@ func updateAllGoModFiles(newVersion string, newModPaths []tools.ModulePath, modP
 // updateGoSum runs 'make lint' to automatically update go.sum files.
 func updateGoSum() error {
 	cmd := exec.Command("make", "lint")
-	if err := cmd.Run(); err != nil {
+	output, err := cmd.Output()
+	if err != nil {
+		fmt.Println(output)
 		return fmt.Errorf("'make lint' failed: %v", err)
 	}
 
