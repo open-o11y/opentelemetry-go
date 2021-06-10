@@ -42,23 +42,23 @@ const (
 )
 
 type config struct {
-	versioningFile	string
-	moduleSet			string
+	VersioningFile string
+	ModuleSet      string
 }
 
 func validateConfig(cfg config) (config, error) {
-	if cfg.versioningFile == "" {
+	if cfg.VersioningFile == "" {
 		repoRoot, err := tools.FindRepoRoot()
 		if err != nil {
 			return config{}, fmt.Errorf("no versioning file was given, and could not automatically find repo root: %v", err)
 		}
-		cfg.versioningFile = filepath.Join(repoRoot,
+		cfg.VersioningFile = filepath.Join(repoRoot,
 			fmt.Sprintf("%v.%v", defaultVersionsConfigName, defaultVersionsConfigType))
 
-		fmt.Printf("Using versioning file found at %v\n", cfg.versioningFile)
+		fmt.Printf("Using versioning file found at %v\n", cfg.VersioningFile)
 	}
 
-	if cfg.moduleSet == "" {
+	if cfg.ModuleSet == "" {
 		return config{}, fmt.Errorf("required argument module-set was empty")
 	}
 
@@ -196,12 +196,12 @@ func main() {
 
 	cfg := config{}
 
-	flag.StringVarP(&cfg.versioningFile, "versioning-file", "v", "",
+	flag.StringVarP(&cfg.VersioningFile, "versioning-file", "v", "",
 		"Path to versioning file that contains definitions of all module sets. " +
 			fmt.Sprintf("If unspecified will default to (RepoRoot)/%v.%v",
 				defaultVersionsConfigName, defaultVersionsConfigType,),
 	)
-	flag.StringVarP(&cfg.moduleSet, "module-set", "m", "",
+	flag.StringVarP(&cfg.ModuleSet, "module-set", "m", "",
 		"Name of module set whose version is being changed. Must be listed in the module set versioning YAML.")
 	flag.Parse()
 
@@ -221,7 +221,7 @@ func main() {
 	os.Chdir(coreRepoRoot)
 
 	// get new version and mod tags to update
-	newVersion, newModPaths, newModTags, err := tools.VersionsAndModsToUpdate(cfg.versioningFile, cfg.moduleSet, coreRepoRoot)
+	newVersion, newModPaths, newModTags, err := tools.VersionsAndModsToUpdate(cfg.VersioningFile, cfg.ModuleSet, coreRepoRoot)
 	if err != nil {
 		log.Fatalf("unable to get modules to update: %v", err)
 	}
@@ -234,11 +234,11 @@ func main() {
 		log.Fatalf("verifyWorkingTreeClean failed: %v", err)
 	}
 
-	if err = createPrereleaseBranch(cfg.moduleSet, newVersion); err != nil {
+	if err = createPrereleaseBranch(cfg.ModuleSet, newVersion); err != nil {
 		log.Fatalf("createPrereleaseBranch failed: %v", err)
 	}
 
-	modPathMap, err := tools.BuildModulePathMap(cfg.versioningFile, coreRepoRoot)
+	modPathMap, err := tools.BuildModulePathMap(cfg.VersioningFile, coreRepoRoot)
 
 	// TODO: what to do with version.go and references to otel.Version()
 	if err = updateVersionGo(); err != nil {
