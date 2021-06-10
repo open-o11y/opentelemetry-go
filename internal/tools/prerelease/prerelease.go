@@ -126,7 +126,6 @@ func filePathToRegex(fpath string) string {
 // for all specified modules in newModPaths, and writes the new go.mod to the toFile file.
 func updateGoModVersions(newVersion string, newModPaths []tools.ModulePath, modFilePath tools.ModuleFilePath) error {
 	newGoModFile, err := ioutil.ReadFile(string(modFilePath))
-	fmt.Println(string(modFilePath))
 	if err != nil {
 		panic(err)
 	}
@@ -145,7 +144,6 @@ func updateGoModVersions(newVersion string, newModPaths []tools.ModulePath, modF
 
 	// once all module versions have been updated, overwrite the go.mod file
 	ioutil.WriteFile(string(modFilePath), newGoModFile, 0644)
-	os.Stdout.Write(newGoModFile)
 
 	return nil
 }
