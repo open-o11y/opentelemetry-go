@@ -110,6 +110,7 @@ func createPrereleaseBranch(newVersion string) error {
 	return nil
 }
 
+// TODO: figure out what to do with version.go file
 func updateVersionGo() error {
 	return nil
 }
@@ -157,11 +158,35 @@ func updateAllGoModFiles(newVersion string, newModPaths []tools.ModulePath, modP
 	return nil
 }
 
+// updateGoSum runs 'make lint' to automatically update go.sum files.
 func updateGoSum() error {
+	cmd := exec.Command("make", "lint")
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("'make lint' failed: %v", err)
+	}
+
 	return nil
 }
 
-func commitChanges() error {
+func commitChanges(newVersion string) error {
+	// add changes to git
+	cmd := exec.Command("git", "add", ".")
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("'git add .' failed: %v", err)
+	}
+
+	// make ci
+	cmd = exec.Command("make", "ci")
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("'make ci' failed: %v", err)
+	}
+
+	// commit changes to git
+	cmd = exec.Command("git", "commit", "-m", "Prepare for releasing " + newVersion)
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("git commit failed: %v", err)
+	}
+
 	return nil
 }
 
@@ -221,17 +246,11 @@ func main() {
 		log.Fatalf("updateAllGoModFiles failed: %v", err)
 	}
 
-	//# Run lint to update go.sum
-	//make lint
 	if err = updateGoSum(); err != nil {
 		log.Fatalf("updateGoSum failed: %v", err)
 	}
 
-	//# Add changes and commit.
-	//	git add .
-	//	make ci
-	//git commit -m "Prepare for releasing $TAG"
-	if err = commitChanges(); err != nil {
+	if err = commitChanges(newVersion); err != nil {
 		log.Fatalf("commitChanges failed: %v", err)
 	}
 
