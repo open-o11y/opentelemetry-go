@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package common provides helper functions used in scripts within the
+// Package tools provides helper functions used in scripts within the
 // internal/tools module.
-package common
+package tools
 
 import (
 	"errors"
@@ -30,8 +30,8 @@ import (
 
 // versionConfig is needed to parse the versions.yaml file with viper.
 type versionConfig struct {
-	ModuleSets 		ModuleSetMap 	`mapstructure:"module-sets"`
-	ExcludedModules	[]ModulePath	`mapstructure:"excluded-modules"`
+	ModuleSets      ModuleSetMap `mapstructure:"module-sets"`
+	ExcludedModules []ModulePath `mapstructure:"excluded-modules"`
 }
 
 // excludedModules functions as a set containing all module paths that are excluded
@@ -43,8 +43,8 @@ type ModuleSetMap map[string]ModuleSet
 
 // ModuleSet holds the version that the specified modules within the set will have.
 type ModuleSet struct {
-	Version	string			`mapstructure:"version"`
-	Modules	[]ModulePath	`mapstructure:"modules"`
+	Version	string       `mapstructure:"version"`
+	Modules	[]ModulePath `mapstructure:"modules"`
 }
 
 // ModulePath holds the module import path, such as "go.opentelemetry.io/otel".

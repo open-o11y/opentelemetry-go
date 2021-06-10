@@ -24,6 +24,7 @@ package main
 
 import (
 	"fmt"
+	"go.opentelemetry.io/otel/internal/tools"
 	"io"
 	"log"
 	"os"
@@ -32,8 +33,6 @@ import (
 	"strings"
 
 	flag "github.com/spf13/pflag"
-
-	"go.opentelemetry.io/otel/internal/tools/common"
 )
 
 const (
@@ -48,7 +47,7 @@ type config struct {
 
 func validateConfig(cfg config) (config, error) {
 	if cfg.versioningFile == "" {
-		repoRoot, err := common.FindRepoRoot()
+		repoRoot, err := tools.FindRepoRoot()
 		if err != nil {
 			return config{}, fmt.Errorf("no versioning file was given, and could not automatically find repo root: %v", err)
 		}
@@ -67,7 +66,7 @@ func validateConfig(cfg config) (config, error) {
 
 // verifyGitTagsDoNotAlreadyExist checks if Git tags have already been created that match the specific module tag name
 // and version number for the modules being updated. If the tag already exists, an error is returned.
-func verifyGitTagsDoNotAlreadyExist(newVersion string, modTags []common.ModuleTagName, coreRepoRoot string) error {
+func verifyGitTagsDoNotAlreadyExist(newVersion string, modTags []tools.ModuleTagName, coreRepoRoot string) error {
 	for _, modTag := range modTags {
 		tagSearchString := string(modTag) + "/" + newVersion
 		cmd := exec.Command("git", "tag", "-l", tagSearchString)
@@ -138,8 +137,8 @@ func copyFile(dst, src string) error {
 // update all go.mod dependencies to use new versions
 // TODO: figure out how to update module path for semantic import versioning
 func updateGoModFiles(newVersion string,
-	newModPaths []common.ModulePath,
-	modPathMap common.ModulePathMap) error {
+	newModPaths []tools.ModulePath,
+	modPathMap tools.ModulePathMap) error {
 	for _, modPath := range newModPaths {
 		goModFilePath := string(modPathMap[modPath])
 		fmt.Println("Editing", goModFilePath)
@@ -181,13 +180,13 @@ func main() {
 		os.Exit(-1)
 	}
 
-	coreRepoRoot, err := common.FindRepoRoot()
+	coreRepoRoot, err := tools.FindRepoRoot()
 	if err != nil {
 		log.Fatalf("unable to find repo root: %v", err)
 	}
 
 	// get new version and mod tags to update
-	newVersion, newModPaths, newModTags, err := common.VersionsAndModsToUpdate(cfg.versioningFile, cfg.moduleSet, coreRepoRoot)
+	newVersion, newModPaths, newModTags, err := tools.VersionsAndModsToUpdate(cfg.versioningFile, cfg.moduleSet, coreRepoRoot)
 	if err != nil {
 		log.Fatalf("unable to get modules to update: %v", err)
 	}
@@ -204,7 +203,7 @@ func main() {
 	//	log.Fatalf("createPrereleaseBranch failed: %v", err)
 	//}
 
-	modPathMap, err := common.BuildModulePathMap(cfg.versioningFile, coreRepoRoot)
+	modPathMap, err := tools.BuildModulePathMap(cfg.versioningFile, coreRepoRoot)
 
 	// TODO: what to do with version.go and references to otel.Version()
 	if err = updateVersionGo(); err != nil {

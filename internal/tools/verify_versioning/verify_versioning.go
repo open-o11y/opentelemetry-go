@@ -25,12 +25,11 @@ package main
 import (
 	"fmt"
 	flag "github.com/spf13/pflag"
+	"go.opentelemetry.io/otel/internal/tools"
 	"golang.org/x/mod/semver"
 	"log"
 	"os"
 	"path/filepath"
-
-	"go.opentelemetry.io/otel/internal/tools/common"
 )
 
 const (
@@ -44,7 +43,7 @@ type config struct {
 
 func validateConfig(cfg config) (config, error) {
 	if cfg.versioningFile == "" {
-		repoRoot, err := common.FindRepoRoot()
+		repoRoot, err := tools.FindRepoRoot()
 		if err != nil {
 			return config{}, fmt.Errorf("Could not find repo root: %v", err)
 		}
@@ -55,7 +54,7 @@ func validateConfig(cfg config) (config, error) {
 }
 
 // verifyAllModulesInSet checks that every module (as defined by a go.mod file) is contained in exactly one module set.
-func verifyAllModulesInSet(modPathMap common.ModulePathMap, modInfoMap common.ModuleInfoMap) error {
+func verifyAllModulesInSet(modPathMap tools.ModulePathMap, modInfoMap tools.ModuleInfoMap) error {
 	// Note: This could be simplified by doing a set comparison between the keys in modInfoMap
 	// and the values of modulePathMap.
 	for modPath, modFilePath := range modPathMap {
@@ -79,7 +78,7 @@ func verifyAllModulesInSet(modPathMap common.ModulePathMap, modInfoMap common.Mo
 }
 
 // verifyVersions checks that module set versions conform to versioning semantics.
-func verifyVersions(modSetMap common.ModuleSetMap) error {
+func verifyVersions(modSetMap tools.ModuleSetMap) error {
 	// setMajorVersions keeps track of all sets' major versions, used to check for multiple sets
 	// with the same non-zero major version.
 	setMajorVersions := make(map[string]string)
@@ -137,22 +136,22 @@ func main() {
 		os.Exit(-1)
 	}
 
-	modSetMap, err := common.BuildModuleSetsMap(cfg.versioningFile)
+	modSetMap, err := tools.BuildModuleSetsMap(cfg.versioningFile)
 	if err != nil {
 		log.Fatalf("unable to build module sets map: %v", err)
 	}
 
-	modInfoMap, err := common.BuildModuleMap(cfg.versioningFile)
+	modInfoMap, err := tools.BuildModuleMap(cfg.versioningFile)
 	if err != nil {
 		log.Fatalf("unable to build module info map: %v", err)
 	}
 
-	coreRepoRoot, err := common.FindRepoRoot()
+	coreRepoRoot, err := tools.FindRepoRoot()
 	if err != nil {
 		log.Fatalf("unable to find repo root: %v", err)
 	}
 
-	modPathMap, err := common.BuildModulePathMap(cfg.versioningFile, coreRepoRoot)
+	modPathMap, err := tools.BuildModulePathMap(cfg.versioningFile, coreRepoRoot)
 	if err != nil {
 		log.Fatalf("unable to build module path map: %v", err)
 	}
