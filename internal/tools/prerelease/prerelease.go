@@ -99,10 +99,12 @@ func verifyWorkingTreeClean() error {
 }
 
 func createPrereleaseBranch(modSet, newVersion string) error {
-	branchName := "pre_release_" + newVersion
+	branchNameElements := []string{"pre_release", modSet, newVersion}
+	branchName := strings.Join(branchNameElements, "_")
 	cmd := exec.Command("git", "checkout", "-b", branchName, "main")
-	_, err := cmd.Output()
+	output, err := cmd.Output()
 	if err != nil {
+		fmt.Println(output)
 		return fmt.Errorf("could not create new branch %v: %v", branchName, err)
 	}
 	fmt.Printf("switching to branch %v...\n", branchName)
