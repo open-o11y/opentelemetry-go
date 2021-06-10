@@ -165,7 +165,7 @@ func updateGoSum() error {
 	cmd := exec.Command("make", "lint")
 	output, err := cmd.Output()
 	if err != nil {
-		fmt.Println(output)
+		os.Stdout.Write(output)
 		return fmt.Errorf("'make lint' failed: %v", err)
 	}
 
