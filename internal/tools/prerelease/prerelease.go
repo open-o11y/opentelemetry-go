@@ -16,9 +16,6 @@
 // will contain all release changes, including updated version numbers.
 // This is to be used after the verify_release script has successfully
 // verified that the versioning of module sets is valid.
-//
-// TODO: write usage message
-// -t
 
 package main
 
