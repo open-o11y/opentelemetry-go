@@ -195,34 +195,39 @@ func BuildModuleMap(versioningFilename string) (ModuleInfoMap, error) {
 
 // VersionsAndModsToUpdate returns the specified module set's version string and each of its module's
 // ModuleTagName used for Git tagging.
-func VersionsAndModsToUpdate(versioningFilename string, modSetName string, repoRoot string) (string, []ModuleTagName, error) {
+func VersionsAndModsToUpdate(versioningFilename string,
+		modSetName string,
+		repoRoot string) (string,
+		[]ModulePath,
+		[]ModuleTagName,
+		error) {
 	modSetsMap, err := BuildModuleSetsMap(versioningFilename)
 	if err != nil {
-		return "", nil, fmt.Errorf("could not build module sets map: %v", err)
+		return "", nil, nil, fmt.Errorf("could not build module sets map: %v", err)
 	}
 
 	modSet, exists := modSetsMap[modSetName]
 	if !exists {
-		return "", nil, fmt.Errorf("could not find module set %v in versioning file", modSetName)
+		return "", nil, nil, fmt.Errorf("could not find module set %v in versioning file", modSetName)
 	}
 
 	modPathMap, err := BuildModulePathMap(versioningFilename, repoRoot)
 	if err != nil {
-		return "", nil, fmt.Errorf("unable to build module path map: %v", err)
+		return "", nil, nil, fmt.Errorf("unable to build module path map: %v", err)
 	}
 
 	newVersion := modSet.Version
 	modPaths := modSet.Modules
 	modFilePaths, err := modulePathsToFilePaths(modPaths, modPathMap)
 	if err != nil {
-		return "", nil, fmt.Errorf("could not convert module paths to file paths: %v", err)
+		return "", nil, nil, fmt.Errorf("could not convert module paths to file paths: %v", err)
 	}
 	modTagNames, err := moduleFilePathsToTagNames(modFilePaths, repoRoot)
 	if err != nil {
-		return "", nil, fmt.Errorf("could not convert module file paths to tag names: %v", err)
+		return "", nil, nil, fmt.Errorf("could not convert module file paths to tag names: %v", err)
 	}
 
-	return newVersion, modTagNames, nil
+	return newVersion, modPaths, modTagNames, nil
 }
 
 // modulePathsToFilePaths returns a list of absolute file paths from a list of module's import paths.

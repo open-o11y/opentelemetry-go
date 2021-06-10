@@ -24,6 +24,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -88,23 +89,24 @@ func verifyGitTagsDoNotAlreadyExist(newVersion string, modTags []common.ModuleTa
 func verifyWorkingTreeClean() error {
 	cmd := exec.Command("git", "diff", "--exit-code")
 	output, err := cmd.Output()
-
 	if err != nil {
 		return fmt.Errorf("working tree is not clean, can't proceed with the release process:\n\n%v",
 			string(output),
 		)
 	}
+
 	return nil
 }
 
 func createPrereleaseBranch(newVersion string) error {
 	branchName := "pre_release_" + newVersion
 	cmd := exec.Command("git", "checkout", "-b", branchName, "main")
-	output, err := cmd.Output()
+	_, err := cmd.Output()
 	if err != nil {
 		return fmt.Errorf("could not create new branch %v: %v", branchName, err)
 	}
-	fmt.Println(output)
+	fmt.Printf("switching to branch %v...\n", branchName)
+
 	return nil
 }
 
@@ -112,11 +114,40 @@ func updateVersionGo() error {
 	return nil
 }
 
+func copyFile(dst, src string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return fmt.Errorf("copying error: error opening %v: %v", src, err)
+	}
+	defer in.Close()
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return fmt.Errorf("copying error: error creating %v: %v", out, err)
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, in)
+	if err != nil {
+		return fmt.Errorf("copying error", err)
+	}
+	return out.Close()
+}
+
 // find all go.mod files
 // update all go.mod dependencies to use new versions
 // TODO: figure out how to update module path for semantic import versioning
-func updateGoModFiles() error {
+func updateGoModFiles(newVersion string,
+	newModPaths []common.ModulePath,
+	modPathMap common.ModulePathMap) error {
+	for _, modPath := range newModPaths {
+		goModFilePath := string(modPathMap[modPath])
+		fmt.Println("Editing", goModFilePath)
 
+		if err := copyFile(goModFilePath + ".bak", goModFilePath); err != nil {
+			return fmt.Errorf("error making backup of %v: %v", goModFilePath, err)
+		}
+	}
 	return nil
 }
 
@@ -156,7 +187,7 @@ func main() {
 	}
 
 	// get new version and mod tags to update
-	newVersion, newModTags, err := common.VersionsAndModsToUpdate(cfg.versioningFile, cfg.moduleSet, coreRepoRoot)
+	newVersion, newModPaths, newModTags, err := common.VersionsAndModsToUpdate(cfg.versioningFile, cfg.moduleSet, coreRepoRoot)
 	if err != nil {
 		log.Fatalf("unable to get modules to update: %v", err)
 	}
@@ -165,20 +196,22 @@ func main() {
 			log.Fatalf("verifyGitTagsDoNotAlreadyExist failed: %v", err)
 	}
 
-	if err = verifyWorkingTreeClean(); err != nil {
-		log.Fatalf("verifyWorkingTreeClean failed: %v", err)
-	}
+	//if err = verifyWorkingTreeClean(); err != nil {
+	//	log.Fatalf("verifyWorkingTreeClean failed: %v", err)
+	//}
+	//
+	//if err = createPrereleaseBranch(newVersion); err != nil {
+	//	log.Fatalf("createPrereleaseBranch failed: %v", err)
+	//}
 
-	if err = createPrereleaseBranch(newVersion); err != nil {
-		log.Fatalf("createPrereleaseBranch failed: %v", err)
-	}
+	modPathMap, err := common.BuildModulePathMap(cfg.versioningFile, coreRepoRoot)
 
 	// TODO: what to do with version.go and references to otel.Version()
 	if err = updateVersionGo(); err != nil {
 		log.Fatalf("updateVersionGo failed: %v", err)
 	}
 
-	if err = updateGoModFiles(); err != nil {
+	if err = updateGoModFiles(newVersion, newModPaths, modPathMap); err != nil {
 		log.Fatalf("updateGoModFiles failed: %v", err)
 	}
 
