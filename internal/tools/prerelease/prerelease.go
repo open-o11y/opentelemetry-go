@@ -217,6 +217,9 @@ func main() {
 		log.Fatalf("unable to find repo root: %v", err)
 	}
 
+	fmt.Println("Changing to root directory...")
+	os.Chdir(coreRepoRoot)
+
 	// get new version and mod tags to update
 	newVersion, newModPaths, newModTags, err := tools.VersionsAndModsToUpdate(cfg.versioningFile, cfg.moduleSet, coreRepoRoot)
 	if err != nil {
