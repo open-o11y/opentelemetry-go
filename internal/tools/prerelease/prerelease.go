@@ -42,7 +42,7 @@ type config struct {
 	VersioningFile     string
 	ModuleSet          string
 	FromExistingBranch string
-	SkipMakeLint       bool
+	SkipMake           bool
 }
 
 func validateConfig(cfg config) (config, error) {
@@ -186,8 +186,6 @@ func runMakeLint() error {
 func commitChanges(newVersion string) error {
 	commitMessage := "Prepare for releasing " + newVersion
 
-	fmt.Printf("Adding and commit changes to git with message %v...", commitMessage)
-
 	// add changes to git
 	cmd := exec.Command("git", "add", ".")
 	if output, err := cmd.CombinedOutput(); err != nil {
@@ -195,12 +193,15 @@ func commitChanges(newVersion string) error {
 	}
 
 	// make ci
+	fmt.Println("Running 'make ci'...")
 	cmd = exec.Command("make", "ci")
+	fmt.Printf("Adding and commit changes to git with message %v...", commitMessage)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("'make ci' failed: %v (%v)", string(output), err)
 	}
 
 	// commit changes to git
+	fmt.Printf("Commit changes to git with message %v...", commitMessage)
 	cmd = exec.Command("git", "commit", "-m", commitMessage)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("git commit failed: %v (%v)", string(output), err)
@@ -226,8 +227,8 @@ func main() {
 	flag.StringVarP(&cfg.FromExistingBranch, "from-existing-branch", "f", "",
 		"Name of existing branch from which to base the pre-release branch. If unspecified, defaults to current branch.",
 	)
-	flag.BoolVarP(&cfg.SkipMakeLint, "skip-make-lint", "s", false,
-		"Specify this flag to skip the 'make lint' used to update go.sum files automatically. "+
+	flag.BoolVarP(&cfg.SkipMake, "skip-make", "s", false,
+		"Specify this flag to skip the 'make lint' and 'make ci' steps. "+
 			"To be used for debugging purposes. Should not be skipped during actual release.",
 	)
 	flag.Parse()
@@ -278,7 +279,7 @@ func main() {
 		log.Fatalf("updateAllGoModFiles failed: %v", err)
 	}
 
-	if !cfg.SkipMakeLint {
+	if !cfg.SkipMake {
 		if err = runMakeLint(); err != nil {
 			log.Fatalf("runMakeLint failed: %v", err)
 		}
