@@ -174,7 +174,7 @@ func updateAllGoModFiles(newVersion string, newModPaths []tools.ModulePath, modP
 func updateGoSum() error {
 	fmt.Println("Updating go.sum with 'make lint'...")
 
-	cmd = exec.Command("make", "lint")
+	cmd := exec.Command("make", "lint")
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("'make lint' failed: %v (%v)", string(output), err)
 	}
