@@ -39,8 +39,9 @@ const (
 )
 
 type config struct {
-	VersioningFile 	string
-	ModuleSet      	string
+	VersioningFile 		string
+	ModuleSet      		string
+	FromExistingBranch 	string
 }
 
 func validateConfig(cfg config) (config, error) {
@@ -101,15 +102,15 @@ func verifyWorkingTreeClean() error {
 	return nil
 }
 
-func createPrereleaseBranch(modSet, newVersion string) error {
+func createPrereleaseBranch(modSet, newVersion, fromExistingBranch string) error {
 	branchNameElements := []string{"pre_release", modSet, newVersion}
 	branchName := strings.Join(branchNameElements, "_")
-	cmd := exec.Command("git", "checkout", "-b", branchName, "main")
+	fmt.Printf("git checkout -b %v %v\n", branchName, fromExistingBranch)
+	cmd := exec.Command("git", "checkout", "-b", branchName, fromExistingBranch)
 	_, err := cmd.Output()
 	if err != nil {
 		return fmt.Errorf("could not create new branch %v: %v", branchName, err)
 	}
-	fmt.Printf("switching to branch %v...\n", branchName)
 
 	return nil
 }
@@ -208,7 +209,11 @@ func main() {
 				defaultVersionsConfigName, defaultVersionsConfigType,),
 	)
 	flag.StringVarP(&cfg.ModuleSet, "module-set", "m", "",
-		"Name of module set whose version is being changed. Must be listed in the module set versioning YAML.")
+		"Name of module set whose version is being changed. Must be listed in the module set versioning YAML.",
+		)
+	flag.StringVarP(&cfg.FromExistingBranch, "from-existing-branch", "f", "main",
+		"Name of existing branch from which to base the pre-release branch. If unspecified, defaults to main.",
+		)
 	flag.Parse()
 
 	cfg, err := validateConfig(cfg)
@@ -242,7 +247,7 @@ func main() {
 		log.Fatalf("verifyWorkingTreeClean failed: %v", err)
 	}
 
-	if err = createPrereleaseBranch(cfg.ModuleSet, newVersion); err != nil {
+	if err = createPrereleaseBranch(cfg.ModuleSet, newVersion, cfg.FromExistingBranch); err != nil {
 		log.Fatalf("createPrereleaseBranch failed: %v", err)
 	}
 
