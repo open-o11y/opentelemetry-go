@@ -4,16 +4,13 @@ go 1.15
 
 replace (
 	go.opentelemetry.io/otel => ../..
-	go.opentelemetry.io/otel/exporters/otlp => ../../exporters/otlp
 	go.opentelemetry.io/otel/sdk => ../../sdk
 )
 
 require (
 	go.opentelemetry.io/otel v0.20.0
-	go.opentelemetry.io/otel/exporters/otlp v0.20.0
-	go.opentelemetry.io/otel/metric v0.20.0
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v0.20.0
 	go.opentelemetry.io/otel/sdk v0.20.0
-	go.opentelemetry.io/otel/sdk/metric v0.20.0
 	go.opentelemetry.io/otel/trace v0.20.0
 	google.golang.org/grpc v1.38.0
 )
@@ -63,3 +60,5 @@ replace go.opentelemetry.io/otel/exporters/otlp/otlptrace => ../../exporters/otl
 replace go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc => ../../exporters/otlp/otlptrace/otlptracegrpc
 
 replace go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp => ../../exporters/otlp/otlptrace/otlptracehttp
+
+replace go.opentelemetry.io/otel/internal/metric => ../../internal/metric

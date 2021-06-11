@@ -13,7 +13,8 @@
 // limitations under the License.
 
 // Package tools provides helper functions used in scripts within the
-// internal/tools module.
+// internal/tools module, as well as imports needed for a build with the
+// "tools" build tag.
 package tools
 
 import (
@@ -296,6 +297,10 @@ func moduleFilePathsToTagNames(modFilePaths []ModuleFilePath, repoRoot string) (
 	return modNames, nil
 }
 
+// FindRepoRoot retrieves the root of the repository containing the current working directory.
+// Beginning at the current working directory (dir), the algorithm checks if joining the ".git"
+// suffix, such as "dir.get", is a valid file. Otherwise, it will continue checking the dir's
+// parent directory until it reaches the repo root or returns an error if it cannot be found.
 func FindRepoRoot() (string, error) {
 	start, err := os.Getwd()
 	if err != nil {
