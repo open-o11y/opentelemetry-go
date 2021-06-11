@@ -66,7 +66,13 @@ func validateConfig(cfg config) (config, error) {
 // and version number for the modules being updated. If the tag already exists, an error is returned.
 func verifyGitTagsDoNotAlreadyExist(newVersion string, modTags []tools.ModuleTagName, coreRepoRoot string) error {
 	for _, modTag := range modTags {
-		tagSearchString := string(modTag) + "/" + newVersion
+		var tagSearchString string
+		if modTag == tools.REPOROOTTAG {
+			tagSearchString = newVersion
+		} else {
+			tagSearchString = string(modTag) + "/" + newVersion
+		}
+
 		cmd := exec.Command("git", "tag", "-l", tagSearchString)
 		output, err := cmd.Output()
 		if err != nil {
@@ -225,6 +231,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("unable to get modules to update: %v", err)
 	}
+
+	fmt.Println(newModTagNames)
 
 	if err = verifyGitTagsDoNotAlreadyExist(newVersion, newModTagNames, coreRepoRoot); err != nil {
 			log.Fatalf("verifyGitTagsDoNotAlreadyExist failed: %v", err)

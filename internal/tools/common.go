@@ -28,6 +28,10 @@ import (
 	"strings"
 )
 
+const (
+	REPOROOTTAG = ModuleTagName("REPOROOTTAG")
+)
+
 // versionConfig is needed to parse the versions.yaml file with viper.
 type versionConfig struct {
 	ModuleSets      ModuleSetMap `mapstructure:"module-sets"`
@@ -248,8 +252,14 @@ func ModuleFilePathToTagName(modFilePath ModuleFilePath, repoRoot string) (Modul
 	modTagName := strings.TrimSuffix(modTagNameWithGoMod, "/go.mod")
 
 	if modTagName == string(modFilePath) {
-		return "", fmt.Errorf("modFilePath %v does not contain the repo root prefix %v", modFilePath, repoRoot)
+		return "", fmt.Errorf("modFilePath %v could not be found in the repo root %v", modFilePath, repoRoot)
 	}
+
+	// if the modTagName is equal to go.mod, it is the root repo
+	if modTagName == "go.mod" {
+		return REPOROOTTAG, nil
+	}
+
 	return ModuleTagName(modTagName), nil
 }
 
