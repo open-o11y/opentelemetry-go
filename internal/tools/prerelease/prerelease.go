@@ -183,7 +183,7 @@ func runMakeLint() error {
 	return nil
 }
 
-func commitChanges(newVersion string) error {
+func commitChanges(newVersion string, skipMake bool) error {
 	commitMessage := "Prepare for releasing " + newVersion
 
 	// add changes to git
@@ -193,11 +193,15 @@ func commitChanges(newVersion string) error {
 	}
 
 	// make ci
-	fmt.Println("Running 'make ci'...")
-	cmd = exec.Command("make", "ci")
-	fmt.Printf("Adding and commit changes to git with message %v...", commitMessage)
-	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("'make ci' failed: %v (%v)", string(output), err)
+	if skipMake {
+		fmt.Println("Skipping 'make ci'...")
+	} else {
+		fmt.Println("Running 'make ci'...")
+		cmd = exec.Command("make", "ci")
+		fmt.Printf("Adding and commit changes to git with message %v...", commitMessage)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("'make ci' failed: %v (%v)", string(output), err)
+		}
 	}
 
 	// commit changes to git
@@ -279,15 +283,15 @@ func main() {
 		log.Fatalf("updateAllGoModFiles failed: %v", err)
 	}
 
-	if !cfg.SkipMake {
+	if cfg.SkipMake {
+		fmt.Println("Skipping 'make lint'...")
+	} else {
 		if err = runMakeLint(); err != nil {
 			log.Fatalf("runMakeLint failed: %v", err)
 		}
-	} else {
-		fmt.Println("Skipping 'make lint'...")
 	}
 
-	if err = commitChanges(newVersion); err != nil {
+	if err = commitChanges(newVersion, cfg.SkipMake); err != nil {
 		log.Fatalf("commitChanges failed: %v", err)
 	}
 
