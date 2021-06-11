@@ -65,23 +65,19 @@ func validateConfig(cfg config) (config, error) {
 
 // verifyGitTagsDoNotAlreadyExist checks if Git tags have already been created that match the specific module tag name
 // and version number for the modules being updated. If the tag already exists, an error is returned.
-func verifyGitTagsDoNotAlreadyExist(newVersion string, modTags []tools.ModuleTagName, coreRepoRoot string) error {
-	for _, modTag := range modTags {
-		var tagSearchString string
-		if modTag == tools.REPOROOTTAG {
-			tagSearchString = newVersion
-		} else {
-			tagSearchString = string(modTag) + "/" + newVersion
-		}
+func verifyGitTagsDoNotAlreadyExist(version string, modTagNames []tools.ModuleTagName, coreRepoRoot string) error {
+	modFullTags := tools.CombineModuleTagNamesAndVersion(modTagNames, version)
 
-		cmd := exec.Command("git", "tag", "-l", tagSearchString)
+	for _, newFullTag := range modFullTags {
+		cmd := exec.Command("git", "tag", "-l", newFullTag)
 		output, err := cmd.Output()
 		if err != nil {
-			return fmt.Errorf("could not execute git tag -l %v: %v", tagSearchString, err)
+			return fmt.Errorf("could not execute git tag -l %v: %v", newFullTag, err)
 		}
+
 		outputTag := strings.TrimSpace(string(output))
-		if outputTag == tagSearchString {
-			return fmt.Errorf("git tag already exists for %v", tagSearchString)
+		if outputTag == newFullTag {
+			return fmt.Errorf("git tag already exists for %v", newFullTag)
 		}
 	}
 
@@ -229,7 +225,7 @@ func main() {
 	os.Chdir(coreRepoRoot)
 
 	// get new version and mod tags to update
-	newVersion, newModPaths, newModTagNames, err := tools.VersionsAndModsToUpdate(cfg.VersioningFile, cfg.ModuleSet, coreRepoRoot)
+	newVersion, newModPaths, newModTagNames, err := tools.VersionsAndModulesToUpdate(cfg.VersioningFile, cfg.ModuleSet, coreRepoRoot)
 	if err != nil {
 		log.Fatalf("unable to get modules to update: %v", err)
 	}

@@ -101,25 +101,25 @@ func deleteTags(modFullTags []string) error {
 	return nil
 }
 
-func tagAllModules(newVersion string, modTagNames []tools.ModuleTagName, commitHash string) error {
+func tagAllModules(version string, modTagNames []tools.ModuleTagName, commitHash string) error {
+	modFullTags := tools.CombineModuleTagNamesAndVersion(modTagNames, version)
+
 	var addedFullTags []string
 
-	for _, modTagName := range modTagNames {
-		var newFullTag string
-		if modTagName == tools.REPOROOTTAG {
-			newFullTag = newVersion
-		} else {
-			newFullTag = string(modTagName) + "/" + newVersion
-		}
+	for _, newFullTag := range modFullTags {
 		fmt.Printf("git tag -a %v -s -m \"Version %v\" %v\n", newFullTag, newFullTag, commitHash)
+
 		cmd := exec.Command("git", "tag", "-a", newFullTag, "-s", "-m", "Version " + newFullTag, commitHash)
 		if output, err := cmd.CombinedOutput(); err != nil {
 			fmt.Println("error creating a tag, removing all newly created tags...")
+
+			// remove newly created tags to prevent inconsistencies
 			if delTagsErr := deleteTags(addedFullTags); delTagsErr != nil {
 				return fmt.Errorf("git tag failed for %v:\n%v (%v).\nCould not remove all tags: %v",
 					newFullTag, string(output), err, delTagsErr,
 				)
 			}
+
 			return fmt.Errorf("git tag failed for %v:\n%v (%v)", newFullTag, string(output), err)
 		}
 
@@ -174,30 +174,21 @@ func main() {
 	os.Chdir(coreRepoRoot)
 
 	// get new version and mod tags to update
-	newVersion, _, newModTagNames, err := tools.VersionsAndModsToUpdate(cfg.VersioningFile, cfg.ModuleSet, coreRepoRoot)
+	newVersion, _, newModTagNames, err := tools.VersionsAndModulesToUpdate(cfg.VersioningFile, cfg.ModuleSet, coreRepoRoot)
 	if err != nil {
 		log.Fatalf("unable to get modules to update: %v", err)
 	}
 
 	// if delete-module-set-tags was specified, then delete all newModTagNames
 	// whose versions match the one in the versioning file
-	// TODO: simplify logic by creating common function for getting all full module tags
 	if cfg.DeleteModuleSetTags {
-		var modFullTagsToDelete []string
-		for _, modTagName := range newModTagNames {
-			var newFullTag string
-			if modTagName == tools.REPOROOTTAG {
-				newFullTag = newVersion
-			} else {
-				newFullTag = string(modTagName) + "/" + newVersion
-			}
-			modFullTagsToDelete = append(modFullTagsToDelete, newFullTag)
-		}
+		modFullTagsToDelete := tools.CombineModuleTagNamesAndVersion(newModTagNames, newVersion)
 
 		if err := deleteTags(modFullTagsToDelete); err != nil {
-			log.Fatalf("unable to delete modules: %v", err)
+			log.Fatalf("unable to delete module tags: %v", err)
 		}
 
+		fmt.Println("Successfully deleted module tags")
 		os.Exit(0)
 	}
 

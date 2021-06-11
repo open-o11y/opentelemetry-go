@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	REPOROOTTAG = ModuleTagName("REPOROOTTAG")
+	repoRootTag = ModuleTagName("repoRootTag")
 )
 
 // versionConfig is needed to parse the versions.yaml file with viper.
@@ -197,9 +197,9 @@ func BuildModuleMap(versioningFilename string) (ModuleInfoMap, error) {
 	return modMap, nil
 }
 
-// VersionsAndModsToUpdate returns the specified module set's version string and each of its module's
+// VersionsAndModulesToUpdate returns the specified module set's version string and each of its module's
 // module import path and module tag name used for Git tagging.
-func VersionsAndModsToUpdate(versioningFilename string,
+func VersionsAndModulesToUpdate(versioningFilename string,
 		modSetName string,
 		repoRoot string) (string,
 		[]ModulePath,
@@ -234,6 +234,23 @@ func VersionsAndModsToUpdate(versioningFilename string,
 	return newVersion, modPaths, modTagNames, nil
 }
 
+// CombineModuleTagNamesAndVersion combines a slice of ModuleTagNames with the version number and returns
+// the new full module tags.
+func CombineModuleTagNamesAndVersion(modTagNames []ModuleTagName, version string) []string {
+	var modFullTags []string
+	for _, modTagName := range modTagNames {
+		var newFullTag string
+		if modTagName == repoRootTag {
+			newFullTag = version
+		} else {
+			newFullTag = string(modTagName) + "/" + version
+		}
+		modFullTags = append(modFullTags, newFullTag)
+	}
+
+	return modFullTags
+}
+
 // modulePathsToFilePaths returns a list of absolute file paths from a list of module's import paths.
 func modulePathsToFilePaths(modPaths []ModulePath, modPathMap ModulePathMap) ([]ModuleFilePath, error) {
 	var modFilePaths []ModuleFilePath
@@ -257,7 +274,7 @@ func ModuleFilePathToTagName(modFilePath ModuleFilePath, repoRoot string) (Modul
 
 	// if the modTagName is equal to go.mod, it is the root repo
 	if modTagName == "go.mod" {
-		return REPOROOTTAG, nil
+		return repoRootTag, nil
 	}
 
 	return ModuleTagName(modTagName), nil
