@@ -58,30 +58,32 @@ func validateConfig(cfg config) (config, error) {
 		return config{}, fmt.Errorf("required argument module-set was empty")
 	}
 
-	if cfg.CommitHash == "" {
-		return config{}, fmt.Errorf("required argument commit-hash was empty")
-	}
+	if !cfg.DeleteModuleSetTags {
+		if cfg.CommitHash == "" {
+			return config{}, fmt.Errorf("required argument commit-hash was empty")
+		}
 
-	cmd := exec.Command("git", "rev-parse", "--quiet", "--verify", cfg.CommitHash)
-	// output stores the complete SHA1 of the commit hash
-	output, err := cmd.Output()
-	if err != nil {
-		return config{}, fmt.Errorf("could not retrieve commit hash %v: %v", cfg.CommitHash, err)
-	}
+		cmd := exec.Command("git", "rev-parse", "--quiet", "--verify", cfg.CommitHash)
+		// output stores the complete SHA1 of the commit hash
+		output, err := cmd.Output()
+		if err != nil {
+			return config{}, fmt.Errorf("could not retrieve commit hash %v: %v", cfg.CommitHash, err)
+		}
 
-	SHA := strings.TrimSpace(string((output)))
+		SHA := strings.TrimSpace(string((output)))
 
-	cmd = exec.Command("git", "merge-base", SHA, "HEAD")
-	// output should match SHA
-	output, err = cmd.Output()
-	if err != nil {
-		return config{}, fmt.Errorf("command 'git merge-base %v HEAD' failed: %v", SHA, err)
-	}
-	if strings.TrimSpace(string(output)) != SHA {
-		return config{}, fmt.Errorf("commit %v (complete SHA: %v) not found on this branch", cfg.CommitHash, SHA)
-	}
+		cmd = exec.Command("git", "merge-base", SHA, "HEAD")
+		// output should match SHA
+		output, err = cmd.Output()
+		if err != nil {
+			return config{}, fmt.Errorf("command 'git merge-base %v HEAD' failed: %v", SHA, err)
+		}
+		if strings.TrimSpace(string(output)) != SHA {
+			return config{}, fmt.Errorf("commit %v (complete SHA: %v) not found on this branch", cfg.CommitHash, SHA)
+		}
 
-	cfg.CommitHash = SHA
+		cfg.CommitHash = SHA
+	}
 
 	return cfg, nil
 }
@@ -92,8 +94,8 @@ func deleteTags(modFullTags []string) error {
 	for _, modFullTag := range modFullTags {
 		fmt.Printf("git tag -d %v\n", modFullTag)
 		cmd := exec.Command("git", "tag", "-d", modFullTag)
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("could not delete tag %v: %v", modFullTag, err)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("could not delete tag %v:\n%v (%v)", modFullTag, string(output), err)
 		}
 	}
 	return nil
@@ -111,12 +113,14 @@ func tagAllModules(newVersion string, modTagNames []tools.ModuleTagName, commitH
 		}
 		fmt.Printf("git tag -a %v -s -m \"Version %v\" %v\n", newFullTag, newFullTag, commitHash)
 		cmd := exec.Command("git", "tag", "-a", newFullTag, "-s", "-m", "Version " + newFullTag, commitHash)
-		if err := cmd.Run(); err != nil {
+		if output, err := cmd.CombinedOutput(); err != nil {
 			fmt.Println("error creating a tag, removing all newly created tags...")
-			if err := deleteTags(addedFullTags); err != nil {
-				return fmt.Errorf("git tag failed for %v and could not remove all tags: %v", newFullTag, err)
+			if delTagsErr := deleteTags(addedFullTags); delTagsErr != nil {
+				return fmt.Errorf("git tag failed for %v:\n%v (%v).\nCould not remove all tags: %v",
+					newFullTag, string(output), err, delTagsErr,
+				)
 			}
-			return fmt.Errorf("git tag failed for %v: %v", newFullTag, err)
+			return fmt.Errorf("git tag failed for %v:\n%v (%v)", newFullTag, string(output), err)
 		}
 
 		addedFullTags = append(addedFullTags, newFullTag)
@@ -169,15 +173,32 @@ func main() {
 	fmt.Println("Changing to root directory...")
 	os.Chdir(coreRepoRoot)
 
-	// TODO: add logic to delete newly created tags
-	if cfg.DeleteModuleSetTags {
-		os.Exit(0)
-	}
-
 	// get new version and mod tags to update
 	newVersion, _, newModTagNames, err := tools.VersionsAndModsToUpdate(cfg.VersioningFile, cfg.ModuleSet, coreRepoRoot)
 	if err != nil {
 		log.Fatalf("unable to get modules to update: %v", err)
+	}
+
+	// if delete-module-set-tags was specified, then delete all newModTagNames
+	// whose versions match the one in the versioning file
+	// TODO: simplify logic by creating common function for getting all full module tags
+	if cfg.DeleteModuleSetTags {
+		var modFullTagsToDelete []string
+		for _, modTagName := range newModTagNames {
+			var newFullTag string
+			if modTagName == tools.REPOROOTTAG {
+				newFullTag = newVersion
+			} else {
+				newFullTag = string(modTagName) + "/" + newVersion
+			}
+			modFullTagsToDelete = append(modFullTagsToDelete, newFullTag)
+		}
+
+		if err := deleteTags(modFullTagsToDelete); err != nil {
+			log.Fatalf("unable to delete modules: %v", err)
+		}
+
+		os.Exit(0)
 	}
 
 	if err := tagAllModules(newVersion, newModTagNames, cfg.CommitHash); err != nil {

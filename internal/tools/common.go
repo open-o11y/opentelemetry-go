@@ -198,7 +198,7 @@ func BuildModuleMap(versioningFilename string) (ModuleInfoMap, error) {
 }
 
 // VersionsAndModsToUpdate returns the specified module set's version string and each of its module's
-// ModuleTagName used for Git tagging.
+// module import path and module tag name used for Git tagging.
 func VersionsAndModsToUpdate(versioningFilename string,
 		modSetName string,
 		repoRoot string) (string,
