@@ -60,6 +60,17 @@ func validateConfig(cfg config) (config, error) {
 		return config{}, fmt.Errorf("required argument module-set was empty")
 	}
 
+	if cfg.FromExistingBranch == "" {
+		// get current branch
+		cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
+		output, err := cmd.Output()
+		if err != nil {
+			return config{}, fmt.Errorf("could not get current branch: %v", err)
+		}
+
+		cfg.FromExistingBranch = strings.TrimSpace(string(output))
+	}
+
 	return cfg, nil
 }
 
@@ -204,8 +215,8 @@ func main() {
 	flag.StringVarP(&cfg.ModuleSet, "module-set", "m", "",
 		"Name of module set whose version is being changed. Must be listed in the module set versioning YAML.",
 		)
-	flag.StringVarP(&cfg.FromExistingBranch, "from-existing-branch", "f", "main",
-		"Name of existing branch from which to base the pre-release branch. If unspecified, defaults to main.",
+	flag.StringVarP(&cfg.FromExistingBranch, "from-existing-branch", "f", "",
+		"Name of existing branch from which to base the pre-release branch. If unspecified, defaults to current branch.",
 		)
 	flag.Parse()
 
