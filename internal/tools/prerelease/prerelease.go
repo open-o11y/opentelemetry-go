@@ -171,8 +171,8 @@ func updateAllGoModFiles(newVersion string, newModPaths []tools.ModulePath, modP
 	return nil
 }
 
-// updateGoSum runs 'make lint' to automatically update go.sum files.
-func updateGoSum() error {
+// runMakeLint runs 'make lint' to automatically update go.sum files.
+func runMakeLint() error {
 	fmt.Println("Updating go.sum with 'make lint'...")
 
 	cmd := exec.Command("make", "lint")
@@ -274,8 +274,10 @@ func main() {
 		log.Fatalf("updateAllGoModFiles failed: %v", err)
 	}
 
-	if err = updateGoSum(); err != nil {
-		log.Fatalf("updateGoSum failed: %v", err)
+	if !cfg.SkipMakeLint {
+		if err = runMakeLint(); err != nil {
+			log.Fatalf("runMakeLint failed: %v", err)
+		}
 	}
 
 	if err = commitChanges(newVersion); err != nil {
