@@ -16,7 +16,6 @@ module-sets:
   stable-v1:
     version: v1.3.0-RC1
     modules:
-      - go.opentelemetry.io/otel
       - go.opentelemetry.io/otel/bridge/opencensus
       - go.opentelemetry.io/otel/bridge/opentracing
       - go.opentelemetry.io/otel/example/jaeger
@@ -40,6 +39,7 @@ module-sets:
   experimental-metrics:
     version: v0.21.0
     modules:
+      - go.opentelemetry.io/otel
       - go.opentelemetry.io/otel/exporters/metric/prometheus
       - go.opentelemetry.io/otel/metric
       - go.opentelemetry.io/otel/sdk/export/metric

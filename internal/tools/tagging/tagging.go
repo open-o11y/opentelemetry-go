@@ -36,9 +36,10 @@ const (
 )
 
 type config struct {
-	VersioningFile 	string
-	ModuleSet      	string
-	CommitHash		string
+	VersioningFile 		string
+	ModuleSet      		string
+	CommitHash			string
+	DeleteModuleSetTags bool
 }
 
 func validateConfig(cfg config) (config, error) {
@@ -85,8 +86,22 @@ func validateConfig(cfg config) (config, error) {
 	return cfg, nil
 }
 
+// deleteTags removes the tags created for a certain version. This func is called to remove newly
+// created tags if the new module tagging fails.
+func deleteTags(modFullTags []string) error {
+	for _, modFullTag := range modFullTags {
+		fmt.Printf("git tag -d %v\n", modFullTag)
+		cmd := exec.Command("git", "tag", "-d", modFullTag)
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("could not delete tag %v: %v", modFullTag, err)
+		}
+	}
+	return nil
+}
 
 func tagAllModules(newVersion string, modTagNames []tools.ModuleTagName, commitHash string) error {
+	var addedFullTags []string
+
 	for _, modTagName := range modTagNames {
 		var newFullTag string
 		if modTagName == tools.REPOROOTTAG {
@@ -96,13 +111,15 @@ func tagAllModules(newVersion string, modTagNames []tools.ModuleTagName, commitH
 		}
 		fmt.Printf("git tag -a %v -s -m \"Version %v\" %v\n", newFullTag, newFullTag, commitHash)
 		cmd := exec.Command("git", "tag", "-a", newFullTag, "-s", "-m", "Version " + newFullTag, commitHash)
-		output, err := cmd.Output()
-		if err != nil {
-			fmt.Printf("Output of git tag command: %v\n", string(output))
-			return fmt.Errorf("git tag failed: %v", err)
+		if err := cmd.Run(); err != nil {
+			fmt.Println("error creating a tag, removing all newly created tags...")
+			if err := deleteTags(addedFullTags); err != nil {
+				return fmt.Errorf("git tag failed for %v and could not remove all tags: %v", newFullTag, err)
+			}
+			return fmt.Errorf("git tag failed for %v: %v", newFullTag, err)
 		}
 
-		fmt.Println("Successfully tagged ", newFullTag)
+		addedFullTags = append(addedFullTags, newFullTag)
 	}
 
 	return nil
@@ -130,6 +147,9 @@ func main() {
 	flag.StringVarP(&cfg.CommitHash, "commit-hash", "c", "",
 		"Git commit hash to tag.",
 	)
+	flag.BoolVarP(&cfg.DeleteModuleSetTags, "delete-module-set-tags", "d", false,
+		"Specify this flag to delete all module tags associated with the version listed for the module set in the versioning file. Should only be used to undo recent tagging mistakes.",
+	)
 	flag.Parse()
 
 	cfg, err := validateConfig(cfg)
@@ -149,6 +169,11 @@ func main() {
 	fmt.Println("Changing to root directory...")
 	os.Chdir(coreRepoRoot)
 
+	// TODO: add logic to delete newly created tags
+	if cfg.DeleteModuleSetTags {
+		os.Exit(0)
+	}
+
 	// get new version and mod tags to update
 	newVersion, _, newModTagNames, err := tools.VersionsAndModsToUpdate(cfg.VersioningFile, cfg.ModuleSet, coreRepoRoot)
 	if err != nil {
@@ -159,7 +184,9 @@ func main() {
 		log.Fatalf("unable to tag modules: %v", err)
 	}
 
-	if err := printChanges; err != nil {
+	// TODO: this currently does nothing, as this function may become deprecated once the method
+	// for managing the CHANGELOG for releasing is updated.
+	if err := printChanges(newVersion); err != nil {
 		log.Fatalf("unable to print changes: %v", err)
 	}
 
