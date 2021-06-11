@@ -172,13 +172,6 @@ func updateAllGoModFiles(newVersion string, newModPaths []tools.ModulePath, modP
 
 // updateGoSum runs 'make lint' to automatically update go.sum files.
 func updateGoSum() error {
-	fmt.Println("Committing go.mod changes with 'make precommit'...")
-
-	cmd := exec.Command("make", "lint")
-	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("'make precommit' failed: %v (%v)", string(output), err)
-	}
-
 	fmt.Println("Updating go.sum with 'make lint'...")
 
 	cmd = exec.Command("make", "lint")
