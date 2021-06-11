@@ -26,7 +26,9 @@ import (
 	"fmt"
 	flag "github.com/spf13/pflag"
 	"go.opentelemetry.io/otel/internal/tools"
+	"golang.org/x/mod/modfile"
 	"golang.org/x/mod/semver"
+	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -74,7 +76,15 @@ func verifyAllModulesInSet(modPathMap tools.ModulePathMap, modInfoMap tools.Modu
 		}
 	}
 
+	fmt.Println("PASS: All modules exist in exactly one set.")
+
 	return nil
+}
+
+// isStableVersion returns true if modSet.Version is stable (i.e. version major greater than
+// or equal to v1), else false.
+func isStableVersion(v string) bool {
+	return semver.Compare(semver.Major(v), "v1") >= 0
 }
 
 // verifyVersions checks that module set versions conform to versioning semantics.
@@ -107,13 +117,47 @@ func verifyVersions(modSetMap tools.ModuleSetMap) error {
 		}
 	}
 
+	fmt.Println("PASS: All module versions are valid, and no module sets have same non-zero major version.")
+
 	return nil
 }
 
-// isStableVersion returns true if modSet.Version is stable (i.e. version major greater than
-// or equal to v1), else false.
-func isStableVersion(v string) bool {
-	return semver.Compare(semver.Major(v), "v1") >= 0
+// verifyDependencies checks that dependencies between modules conform to versioning semantics.
+func verifyDependencies(modInfoMap tools.ModuleInfoMap, modPathMap tools.ModulePathMap) error {
+	// Dependencies are defined by the require section of go.mod files.
+	for modPath, modInfo := range modInfoMap {
+		// check if the module is a stable
+		if isStableVersion(modInfo.Version) {
+			modFilePath := modPathMap[modPath]
+			modData, err := ioutil.ReadFile(string(modFilePath))
+
+			modFile, err := modfile.Parse("teststring", modData, nil)
+			if err != nil {
+				return err
+			}
+
+			// get dependencies as defined by the "requires" section
+			requireDeps := modFile.Require
+
+			for _, dep := range requireDeps {
+				// check if dependency is an otel-go module (i.e. if it exists in the module versioning file)
+				if depModInfo, exists := modInfoMap[tools.ModulePath(dep.Mod.Path)]; exists {
+					// check if dependency is not stable
+					if !isStableVersion(depModInfo.Version) {
+						fmt.Printf(
+							"WARNING: Stable module %v (%v) depends on unstable module %v (%v).\n",
+							modPath, modInfoMap[modPath].Version,
+							dep.Mod.Path, depModInfo.Version,
+						)
+					}
+				}
+			}
+		}
+	}
+
+	fmt.Println("Finished checking all stable modules' dependencies.")
+
+	return nil
 }
 
 func main() {
@@ -162,6 +206,10 @@ func main() {
 
 	if err = verifyVersions(modSetMap); err != nil {
 		log.Fatalf("verifyVersions failed: %v", err)
+	}
+
+	if err = verifyDependencies(modInfoMap, modPathMap); err != nil {
+		log.Fatalf("verifyDependencies failed: %v", err)
 	}
 
 	fmt.Println("PASS: Module sets successfully verified.")
