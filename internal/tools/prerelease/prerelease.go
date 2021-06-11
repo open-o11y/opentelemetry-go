@@ -107,8 +107,9 @@ func createPrereleaseBranch(modSet, newVersion, fromExistingBranch string) error
 	branchName := strings.Join(branchNameElements, "_")
 	fmt.Printf("git checkout -b %v %v\n", branchName, fromExistingBranch)
 	cmd := exec.Command("git", "checkout", "-b", branchName, fromExistingBranch)
-	_, err := cmd.Output()
+	output, err := cmd.Output()
 	if err != nil {
+		fmt.Println(string(output))
 		return fmt.Errorf("could not create new branch %v: %v", branchName, err)
 	}
 
