@@ -42,6 +42,7 @@ type config struct {
 	VersioningFile     string
 	ModuleSet          string
 	FromExistingBranch string
+	SkipMakeLint	   bool
 }
 
 func validateConfig(cfg config) (config, error) {
@@ -220,6 +221,10 @@ func main() {
 	)
 	flag.StringVarP(&cfg.FromExistingBranch, "from-existing-branch", "f", "",
 		"Name of existing branch from which to base the pre-release branch. If unspecified, defaults to current branch.",
+	)
+	flag.BoolVarP(&cfg.SkipMakeLint, "skip-make-lint", "s", false,
+		"Specify this flag to skip the 'make lint' used to update go.sum files automatically. " +
+		"To be used for debugging purposes. Should not be skipped during actual release.",
 	)
 	flag.Parse()
 
