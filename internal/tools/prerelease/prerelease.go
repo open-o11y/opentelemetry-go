@@ -39,9 +39,9 @@ const (
 )
 
 type config struct {
-	VersioningFile 		string
-	ModuleSet      		string
-	FromExistingBranch 	string
+	VersioningFile     string
+	ModuleSet          string
+	FromExistingBranch string
 }
 
 func validateConfig(cfg config) (config, error) {
@@ -196,7 +196,7 @@ func commitChanges(newVersion string) error {
 	}
 
 	// commit changes to git
-	cmd = exec.Command("git", "commit", "-m", "Prepare for releasing " + newVersion)
+	cmd = exec.Command("git", "commit", "-m", "Prepare for releasing "+newVersion)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("git commit failed: %v (%v)", string(output), err)
 	}
@@ -211,16 +211,16 @@ func main() {
 	cfg := config{}
 
 	flag.StringVarP(&cfg.VersioningFile, "versioning-file", "v", "",
-		"Path to versioning file that contains definitions of all module sets. " +
+		"Path to versioning file that contains definitions of all module sets. "+
 			fmt.Sprintf("If unspecified will default to (RepoRoot)/%v.%v",
-				defaultVersionsConfigName, defaultVersionsConfigType,),
+				defaultVersionsConfigName, defaultVersionsConfigType),
 	)
 	flag.StringVarP(&cfg.ModuleSet, "module-set", "m", "",
 		"Name of module set whose version is being changed. Must be listed in the module set versioning YAML.",
-		)
+	)
 	flag.StringVarP(&cfg.FromExistingBranch, "from-existing-branch", "f", "",
 		"Name of existing branch from which to base the pre-release branch. If unspecified, defaults to current branch.",
-		)
+	)
 	flag.Parse()
 
 	cfg, err := validateConfig(cfg)
@@ -247,7 +247,7 @@ func main() {
 	fmt.Println("Checking for tags", newModTagNames)
 
 	if err = verifyGitTagsDoNotAlreadyExist(newVersion, newModTagNames, coreRepoRoot); err != nil {
-			log.Fatalf("verifyGitTagsDoNotAlreadyExist failed: %v", err)
+		log.Fatalf("verifyGitTagsDoNotAlreadyExist failed: %v", err)
 	}
 
 	if err = verifyWorkingTreeClean(); err != nil {

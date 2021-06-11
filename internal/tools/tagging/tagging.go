@@ -36,9 +36,9 @@ const (
 )
 
 type config struct {
-	VersioningFile 		string
-	ModuleSet      		string
-	CommitHash			string
+	VersioningFile      string
+	ModuleSet           string
+	CommitHash          string
 	DeleteModuleSetTags bool
 }
 
@@ -109,7 +109,7 @@ func tagAllModules(version string, modTagNames []tools.ModuleTagName, commitHash
 	for _, newFullTag := range modFullTags {
 		fmt.Printf("git tag -a %v -s -m \"Version %v\" %v\n", newFullTag, newFullTag, commitHash)
 
-		cmd := exec.Command("git", "tag", "-a", newFullTag, "-s", "-m", "Version " + newFullTag, commitHash)
+		cmd := exec.Command("git", "tag", "-a", newFullTag, "-s", "-m", "Version "+newFullTag, commitHash)
 		if output, err := cmd.CombinedOutput(); err != nil {
 			fmt.Println("error creating a tag, removing all newly created tags...")
 
@@ -141,9 +141,9 @@ func main() {
 	cfg := config{}
 
 	flag.StringVarP(&cfg.VersioningFile, "versioning-file", "v", "",
-		"Path to versioning file that contains definitions of all module sets. " +
+		"Path to versioning file that contains definitions of all module sets. "+
 			fmt.Sprintf("If unspecified will default to (RepoRoot)/%v.%v",
-				defaultVersionsConfigName, defaultVersionsConfigType,),
+				defaultVersionsConfigName, defaultVersionsConfigType),
 	)
 	flag.StringVarP(&cfg.ModuleSet, "module-set", "m", "",
 		"Name of module set whose version is being changed. Must be listed in the module set versioning YAML.",

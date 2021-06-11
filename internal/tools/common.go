@@ -48,8 +48,8 @@ type ModuleSetMap map[string]ModuleSet
 
 // ModuleSet holds the version that the specified modules within the set will have.
 type ModuleSet struct {
-	Version	string       `mapstructure:"version"`
-	Modules	[]ModulePath `mapstructure:"modules"`
+	Version string       `mapstructure:"version"`
+	Modules []ModulePath `mapstructure:"modules"`
 }
 
 // ModulePath holds the module import path, such as "go.opentelemetry.io/otel".
@@ -61,8 +61,8 @@ type ModuleInfoMap map[ModulePath]ModuleInfo
 // ModuleInfo is a reverse of the ModuleSetMap, to allow for quick lookup from module
 // path to its set and version.
 type ModuleInfo struct {
-	ModuleSetName	string
-	Version 		string
+	ModuleSetName string
+	Version       string
 }
 
 // ModuleFilePath holds the file path to the go.mod file within the repo,
@@ -201,11 +201,11 @@ func BuildModuleMap(versioningFilename string) (ModuleInfoMap, error) {
 // VersionsAndModulesToUpdate returns the specified module set's version string and each of its module's
 // module import path and module tag name used for Git tagging.
 func VersionsAndModulesToUpdate(versioningFilename string,
-		modSetName string,
-		repoRoot string) (string,
-		[]ModulePath,
-		[]ModuleTagName,
-		error) {
+	modSetName string,
+	repoRoot string) (string,
+	[]ModulePath,
+	[]ModuleTagName,
+	error) {
 	modSetsMap, err := BuildModuleSetsMap(versioningFilename)
 	if err != nil {
 		return "", nil, nil, fmt.Errorf("could not build module sets map: %v", err)
@@ -266,7 +266,7 @@ func modulePathsToFilePaths(modPaths []ModulePath, modPathMap ModulePathMap) ([]
 // ModuleFilePathToTagName returns the module tag names of an input ModuleFilePath
 // by removing the repoRoot prefix from the ModuleFilePath.
 func ModuleFilePathToTagName(modFilePath ModuleFilePath, repoRoot string) (ModuleTagName, error) {
-	modTagNameWithGoMod := strings.TrimPrefix(string(modFilePath), repoRoot + "/")
+	modTagNameWithGoMod := strings.TrimPrefix(string(modFilePath), repoRoot+"/")
 	modTagName := strings.TrimSuffix(modTagNameWithGoMod, "/go.mod")
 
 	if modTagName == string(modFilePath) {

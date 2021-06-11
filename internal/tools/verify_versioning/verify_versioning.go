@@ -38,7 +38,7 @@ const (
 )
 
 type config struct {
-	versioningFile	string
+	versioningFile string
 }
 
 func validateConfig(cfg config) (config, error) {
@@ -96,7 +96,7 @@ func verifyVersions(modSetMap tools.ModuleSetMap) error {
 			modSetVersionMajor := semver.Major(modSet.Version)
 			if prevModSetName, exists := setMajorVersions[modSetVersionMajor]; exists {
 				prevModSet := modSetMap[prevModSetName]
-				return fmt.Errorf("Multiple module sets have the same major version (%v): " +
+				return fmt.Errorf("Multiple module sets have the same major version (%v): "+
 					"%v (version %v) and %v (version %v)",
 					modSetVersionMajor,
 					prevModSetName, prevModSet.Version,
@@ -123,9 +123,9 @@ func main() {
 	cfg := config{}
 
 	flag.StringVarP(&cfg.versioningFile, "versioning-file", "v", "",
-		"Path to versioning file that contains definitions of all module sets. " +
+		"Path to versioning file that contains definitions of all module sets. "+
 			fmt.Sprintf("If unspecified will default to (RepoRoot)/%v.%v",
-				defaultVersionsConfigName, defaultVersionsConfigType,),
+				defaultVersionsConfigName, defaultVersionsConfigType),
 	)
 	flag.Parse()
 
