@@ -161,6 +161,7 @@ func updateGoModVersions(newVersion string, newModPaths []tools.ModulePath, modF
 // updateAllGoModFiles updates ALL modules' requires sections to use the newVersion number
 // for the modules given in newModPaths.
 func updateAllGoModFiles(newVersion string, newModPaths []tools.ModulePath, modPathMap tools.ModulePathMap) error {
+	fmt.Println("Updating all module versions in go.mod files...")
 	for _, modFilePath := range modPathMap {
 		if err := updateGoModVersions(newVersion, newModPaths, modFilePath); err != nil {
 			return fmt.Errorf("could not update module versions in file %v: %v", modFilePath, err)
@@ -171,7 +172,16 @@ func updateAllGoModFiles(newVersion string, newModPaths []tools.ModulePath, modP
 
 // updateGoSum runs 'make lint' to automatically update go.sum files.
 func updateGoSum() error {
+	fmt.Println("Committing go.mod changes with 'make precommit'...")
+
 	cmd := exec.Command("make", "lint")
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("'make precommit' failed: %v (%v)", string(output), err)
+	}
+
+	fmt.Println("Updating go.sum with 'make lint'...")
+
+	cmd = exec.Command("make", "lint")
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("'make lint' failed: %v (%v)", string(output), err)
 	}
