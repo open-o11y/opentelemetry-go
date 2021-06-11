@@ -198,14 +198,13 @@ func commitChanges(newVersion string, skipMake bool) error {
 	} else {
 		fmt.Println("Running 'make ci'...")
 		cmd = exec.Command("make", "ci")
-		fmt.Printf("Adding and commit changes to git with message %v...", commitMessage)
 		if output, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("'make ci' failed: %v (%v)", string(output), err)
 		}
 	}
 
 	// commit changes to git
-	fmt.Printf("Commit changes to git with message %v...", commitMessage)
+	fmt.Printf("Commit changes to git with message '%v'...\n", commitMessage)
 	cmd = exec.Command("git", "commit", "-m", commitMessage)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("git commit failed: %v (%v)", string(output), err)
