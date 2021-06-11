@@ -42,7 +42,7 @@ type config struct {
 	VersioningFile     string
 	ModuleSet          string
 	FromExistingBranch string
-	SkipMakeLint	   bool
+	SkipMakeLint       bool
 }
 
 func validateConfig(cfg config) (config, error) {
@@ -184,6 +184,10 @@ func runMakeLint() error {
 }
 
 func commitChanges(newVersion string) error {
+	commitMessage := "Prepare for releasing " + newVersion
+
+	fmt.Printf("Adding and commit changes to git with message %v...", commitMessage)
+
 	// add changes to git
 	cmd := exec.Command("git", "add", ".")
 	if output, err := cmd.CombinedOutput(); err != nil {
@@ -197,7 +201,7 @@ func commitChanges(newVersion string) error {
 	}
 
 	// commit changes to git
-	cmd = exec.Command("git", "commit", "-m", "Prepare for releasing "+newVersion)
+	cmd = exec.Command("git", "commit", "-m", commitMessage)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("git commit failed: %v (%v)", string(output), err)
 	}
@@ -223,8 +227,8 @@ func main() {
 		"Name of existing branch from which to base the pre-release branch. If unspecified, defaults to current branch.",
 	)
 	flag.BoolVarP(&cfg.SkipMakeLint, "skip-make-lint", "s", false,
-		"Specify this flag to skip the 'make lint' used to update go.sum files automatically. " +
-		"To be used for debugging purposes. Should not be skipped during actual release.",
+		"Specify this flag to skip the 'make lint' used to update go.sum files automatically. "+
+			"To be used for debugging purposes. Should not be skipped during actual release.",
 	)
 	flag.Parse()
 
@@ -278,6 +282,8 @@ func main() {
 		if err = runMakeLint(); err != nil {
 			log.Fatalf("runMakeLint failed: %v", err)
 		}
+	} else {
+		fmt.Println("Skipping 'make lint'...")
 	}
 
 	if err = commitChanges(newVersion); err != nil {
