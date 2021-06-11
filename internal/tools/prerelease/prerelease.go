@@ -92,8 +92,7 @@ func verifyGitTagsDoNotAlreadyExist(newVersion string, modTags []tools.ModuleTag
 // If the working tree is not clean, the git diff output is printed, and an error is returned.
 func verifyWorkingTreeClean() error {
 	cmd := exec.Command("git", "diff", "--exit-code")
-	output, err := cmd.Output()
-	if err != nil {
+	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("working tree is not clean, can't proceed with the release process:\n\n%v",
 			string(output),
 		)
@@ -107,10 +106,9 @@ func createPrereleaseBranch(modSet, newVersion, fromExistingBranch string) error
 	branchName := strings.Join(branchNameElements, "_")
 	fmt.Printf("git checkout -b %v %v\n", branchName, fromExistingBranch)
 	cmd := exec.Command("git", "checkout", "-b", branchName, fromExistingBranch)
-	output, err := cmd.Output()
-	if err != nil {
-		fmt.Println(string(output))
-		return fmt.Errorf("could not create new branch %v: %v", branchName, err)
+
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("could not create new branch %v: %v (%v)", branchName, string(output), err)
 	}
 
 	return nil
@@ -167,10 +165,8 @@ func updateAllGoModFiles(newVersion string, newModPaths []tools.ModulePath, modP
 // updateGoSum runs 'make lint' to automatically update go.sum files.
 func updateGoSum() error {
 	cmd := exec.Command("make", "lint")
-	output, err := cmd.Output()
-	if err != nil {
-		os.Stdout.Write(output)
-		return fmt.Errorf("'make lint' failed: %v", err)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("'make lint' failed: %v (%v)", string(output), err)
 	}
 
 	return nil
@@ -179,20 +175,20 @@ func updateGoSum() error {
 func commitChanges(newVersion string) error {
 	// add changes to git
 	cmd := exec.Command("git", "add", ".")
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("'git add .' failed: %v", err)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("'git add .' failed: %v (%v)", string(output), err)
 	}
 
 	// make ci
 	cmd = exec.Command("make", "ci")
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("'make ci' failed: %v", err)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("'make ci' failed: %v (%v)", string(output), err)
 	}
 
 	// commit changes to git
 	cmd = exec.Command("git", "commit", "-m", "Prepare for releasing " + newVersion)
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("git commit failed: %v", err)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("git commit failed: %v (%v)", string(output), err)
 	}
 
 	return nil
@@ -238,7 +234,7 @@ func main() {
 		log.Fatalf("unable to get modules to update: %v", err)
 	}
 
-	fmt.Println(newModTagNames)
+	fmt.Println("Checking for tags", newModTagNames)
 
 	if err = verifyGitTagsDoNotAlreadyExist(newVersion, newModTagNames, coreRepoRoot); err != nil {
 			log.Fatalf("verifyGitTagsDoNotAlreadyExist failed: %v", err)
