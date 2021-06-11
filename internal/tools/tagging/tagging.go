@@ -163,8 +163,6 @@ func main() {
 		os.Exit(-1)
 	}
 
-	fmt.Println(cfg)
-
 	coreRepoRoot, err := tools.FindRepoRoot()
 	if err != nil {
 		log.Fatalf("unable to find repo root: %v", err)
