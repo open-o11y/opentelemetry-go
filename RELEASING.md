@@ -33,15 +33,57 @@ Uses of the previous schema version in this repository should be updated to use 
 No tooling for this exists at present, so use find/replace in your editor of choice or craft a `grep | sed`
 pipeline if you like living on the edge.
 
+## Specify Module Sets and Versions
+
+To specify sets of modules whose versions will be incremented in lockstep, the `versions.yaml` file must be
+manually edited between versions. Ensure that the new versions are consistent with the
+[Versioning requirements](./VERSIONING.md).
+
+## Verify Module Versioning
+
+Once changes have been completed to the `versions.yaml` file, verify that the versioning is correct by
+running the `verify_versioning` script:
+
+```
+cd internal/tools
+go run verify_versioning verify_versioning.go
+```
+
+* The script is called with the following parameters:
+    * **versioning-file (optional):** Path to versioning file that contains definitions of all module sets. 
+      If unspecified will default to (RepoRoot)/versions.yaml.
+* The following verifications are performed:
+    * `verifyAllModulesInSet` checks that every module (as defined by a `go.mod` file) is contained in exactly 
+      one module set.
+    * `verifyVersions` checks that module set version conform to semver semantics and checks that no more than 
+      one module exists for any given non-zero major version.
+    * `verifyDependencies` checks if any stable modules depend on unstable modules.
+        * The stability of a given module is defined by its version in the `version.yaml` file (`v1` and above
+          is stable, `v0` is unstable).
+        * A dependency is defined by the "require" section of the module's `go.mod` file (in the current branch).
+        * A warning will be printed for each dependency of a stable module on an unstable module.
+
 ## Pre-Release
 
-Update go.mod for submodules to depend on the new release which will happen in the next step.
+Update `go.mod` for all modules to depend on the specified module set's new release, which will happen in the next step.
 
-1. Run the pre-release script. It creates a branch `pre_release_<new tag>` that will contain all release changes.
+1. Run the pre-release script. It creates a branch `pre_release_<module set name>_<new tag>` that will contain
+   all release changes.
 
     ```
-    ./pre_release.sh -t <new tag>
+    # if in the root directory...
+    # cd internal/tools
+    go run prerelease/prerelease.go -m <module set name>
     ```
+* The script is called with the following parameters:
+    * **module-set (required):** Name of module set whose version is being changed. 
+      Must be listed in the module set versioning YAML.
+    * **versioning-file (optional):** Path to versioning file that contains definitions of all module sets. 
+      If unspecified will default to (RepoRoot)/versions.yaml.
+    * **from-existing-branch (optional):** Name of existing branch from which to base the pre-release branch. 
+      If unspecified, defaults to current branch.
+    * **skip-make (boolean flag):** Specify this flag to skip the 'make lint' ** and 'make ci' steps. 
+      To be used for debugging purposes. Should not be skipped during actual release.
 
 2. Verify the changes.
 
