@@ -92,7 +92,7 @@ func validateConfig(cfg config) (config, error) {
 // created tags if the new module tagging fails.
 func deleteTags(modFullTags []string) error {
 	for _, modFullTag := range modFullTags {
-		fmt.Printf("git tag -d %v\n", modFullTag)
+		fmt.Printf("Deleting tag %v\n", modFullTag)
 		cmd := exec.Command("git", "tag", "-d", modFullTag)
 		if output, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("could not delete tag %v:\n%v (%v)", modFullTag, string(output), err)
@@ -106,8 +106,10 @@ func tagAllModules(version string, modTagNames []tools.ModuleTagName, commitHash
 
 	var addedFullTags []string
 
+	fmt.Printf("Tagging commit %v:\n", commitHash)
+
 	for _, newFullTag := range modFullTags {
-		fmt.Printf("git tag -a %v -s -m \"Version %v\" %v\n", newFullTag, newFullTag, commitHash)
+		fmt.Printf("%v\n", newFullTag)
 
 		cmd := exec.Command("git", "tag", "-a", newFullTag, "-s", "-m", "Version "+newFullTag, commitHash)
 		if output, err := cmd.CombinedOutput(); err != nil {
