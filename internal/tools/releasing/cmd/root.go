@@ -16,22 +16,22 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
-	"go.opentelemetry.io/otel/internal/tools"
 	"log"
+	"os"
 	"path/filepath"
 
-	//"go.opentelemetry.io/otel/internal/tools"
-	"os"
-	//"path/filepath"
-
 	homedir "github.com/mitchellh/go-homedir"
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"go.opentelemetry.io/otel/internal/tools"
 )
 
-var cfgFile string
-
-var versioningFile string
+var (
+	cfgFile string
+	moduleSet string
+	versioningFile string
+)
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -64,6 +64,11 @@ func init() {
 		versioningFile = filepath.Join(repoRoot,
 			fmt.Sprintf("%v.%v", defaultVersionsConfigName, defaultVersionsConfigType))
 	}
+
+	rootCmd.PersistentFlags().StringVarP(&moduleSet, "module-set", "m", "",
+		"Name of module set whose version is being changed. Must be listed in the module set versioning YAML.",
+	)
+	rootCmd.MarkPersistentFlagRequired("module-set")
 }
 
 // initConfig reads in config file and ENV variables if set.

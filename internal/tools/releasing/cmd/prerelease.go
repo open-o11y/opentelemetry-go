@@ -29,7 +29,6 @@ import (
 )
 
 var (
-	moduleSet          string
 	fromExistingBranch string
 	skipMake           bool
 )
@@ -110,11 +109,6 @@ func init() {
 	log.SetFlags(0)
 
 	rootCmd.AddCommand(prereleaseCmd)
-
-	prereleaseCmd.Flags().StringVarP(&moduleSet, "module-set", "m", "",
-		"Name of module set whose version is being changed. Must be listed in the module set versioning YAML.",
-	)
-	prereleaseCmd.MarkFlagRequired("module-set")
 
 	prereleaseCmd.Flags().StringVarP(&fromExistingBranch, "from-existing-branch", "f", "",
 		"Name of existing branch from which to base the pre-release branch. If unspecified, defaults to current branch.",
