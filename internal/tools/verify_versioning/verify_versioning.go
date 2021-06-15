@@ -81,12 +81,6 @@ func verifyAllModulesInSet(modPathMap tools.ModulePathMap, modInfoMap tools.Modu
 	return nil
 }
 
-// isStableVersion returns true if modSet.Version is stable (i.e. version major greater than
-// or equal to v1), else false.
-func isStableVersion(v string) bool {
-	return semver.Compare(semver.Major(v), "v1") >= 0
-}
-
 // verifyVersions checks that module set versions conform to versioning semantics.
 func verifyVersions(modSetMap tools.ModuleSetMap) error {
 	// setMajorVersions keeps track of all sets' major versions, used to check for multiple sets
@@ -101,7 +95,7 @@ func verifyVersions(modSetMap tools.ModuleSetMap) error {
 			)
 		}
 
-		if isStableVersion(modSet.Version) {
+		if tools.IsStableVersion(modSet.Version) {
 			// Check that no more than one module exists for any given non-zero major version
 			modSetVersionMajor := semver.Major(modSet.Version)
 			if prevModSetName, exists := setMajorVersions[modSetVersionMajor]; exists {
@@ -127,7 +121,7 @@ func verifyDependencies(modInfoMap tools.ModuleInfoMap, modPathMap tools.ModuleP
 	// Dependencies are defined by the require section of go.mod files.
 	for modPath, modInfo := range modInfoMap {
 		// check if the module is a stable
-		if isStableVersion(modInfo.Version) {
+		if tools.IsStableVersion(modInfo.Version) {
 			modFilePath := modPathMap[modPath]
 			modData, err := ioutil.ReadFile(string(modFilePath))
 
@@ -143,7 +137,7 @@ func verifyDependencies(modInfoMap tools.ModuleInfoMap, modPathMap tools.ModuleP
 				// check if dependency is an otel-go module (i.e. if it exists in the module versioning file)
 				if depModInfo, exists := modInfoMap[tools.ModulePath(dep.Mod.Path)]; exists {
 					// check if dependency is not stable
-					if !isStableVersion(depModInfo.Version) {
+					if !tools.IsStableVersion(depModInfo.Version) {
 						fmt.Printf(
 							"WARNING: Stable module %v (%v) depends on unstable module %v (%v).\n",
 							modPath, modInfoMap[modPath].Version,

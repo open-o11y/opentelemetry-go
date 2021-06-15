@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"github.com/spf13/viper"
 	"golang.org/x/mod/modfile"
+	"golang.org/x/mod/semver"
 	"io/fs"
 	"io/ioutil"
 	"os"
@@ -295,6 +296,12 @@ func moduleFilePathsToTagNames(modFilePaths []ModuleFilePath, repoRoot string) (
 	}
 
 	return modNames, nil
+}
+
+// IsStableVersion returns true if modSet.Version is stable (i.e. version major greater than
+// or equal to v1), else false.
+func IsStableVersion(v string) bool {
+	return semver.Compare(semver.Major(v), "v1") >= 0
 }
 
 // FindRepoRoot retrieves the root of the repository containing the current working directory.
