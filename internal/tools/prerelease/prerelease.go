@@ -294,6 +294,7 @@ func main() {
 		log.Fatalf("commitChanges failed: %v", err)
 	}
 
-	fmt.Println("\nPrerelease finished successfully.\nNow run the following to verify the changes:\ngit diff main")
+	fmt.Println("\nPrerelease finished successfully. Now run the following to verify the changes:")
+	fmt.Println("\ngit diff main\n")
 	fmt.Println("Then, push the changes to upstream.")
 }
