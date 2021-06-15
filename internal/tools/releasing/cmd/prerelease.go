@@ -16,7 +16,6 @@ package cmd
 
 import (
 	"fmt"
-	"go.opentelemetry.io/otel/internal/tools"
 	"io/ioutil"
 	"log"
 	"os"
@@ -26,13 +25,13 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"go.opentelemetry.io/otel/internal/tools"
 )
 
 var (
 	fromExistingBranch string
 	skipMake           bool
 )
-
 
 // prereleaseCmd represents the prerelease command
 var prereleaseCmd = &cobra.Command{
