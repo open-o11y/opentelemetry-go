@@ -271,7 +271,9 @@ func commitChanges(newVersion string, skipMake bool) error {
 	if err != nil {
 		fmt.Println("WARNING: could not automatically get last commit hash.")
 	}
-	fmt.Printf("Commit successful. Hash of commit: %v", strings.TrimSpace(string(output)))
+
+	fmt.Println("Commit successful. Hash of commit:")
+	os.Stdout.Write(output)
 
 	return nil
 }
