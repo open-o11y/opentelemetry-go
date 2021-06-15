@@ -15,36 +15,64 @@
 package cmd
 
 import (
-	"fmt"
+	"log"
+	"os/exec"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
 
+var (
+	moduleSet          string
+	fromExistingBranch string
+	skipMake           bool
+)
+
+
 // prereleaseCmd represents the prerelease command
 var prereleaseCmd = &cobra.Command{
 	Use:   "prerelease",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short: "Prepares files for new version release",
+	Long: `Updates version numbers and commits to a new branch for release:
+- Checks that Git tags do not already exist for the new module set version.
+- Checks that the working tree is clean.
+- Switches to a new branch called pre_release_<module set name>_<new version>.
+- Updates module versions in all go.mod files.
+- 'make lint' and 'make ci' are called
+- Adds and commits changes to Git`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("prerelease called")
+
 	},
 }
 
 func init() {
+	// Plain log output, no timestamps.
+	log.SetFlags(0)
+
 	rootCmd.AddCommand(prereleaseCmd)
 
-	// Here you will define your flags and configuration settings.
+	prereleaseCmd.Flags().StringVarP(&moduleSet, "module-set", "m", "",
+		"Name of module set whose version is being changed. Must be listed in the module set versioning YAML.",
+	)
+	prereleaseCmd.MarkFlagRequired("module-set")
 
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// prereleaseCmd.PersistentFlags().String("foo", "", "A help for foo")
+	prereleaseCmd.Flags().StringVarP(&fromExistingBranch, "from-existing-branch", "f", "",
+		"Name of existing branch from which to base the pre-release branch. If unspecified, defaults to current branch.",
+	)
 
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// prereleaseCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	prereleaseCmd.Flags().BoolVarP(&skipMake, "skip-make", "s", false,
+		"Specify this flag to skip the 'make lint' and 'make ci' steps. "+
+			"To be used for debugging purposes. Should not be skipped during actual release.",
+	)
+
+	if fromExistingBranch == "" {
+		// get current branch
+		cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
+		output, err := cmd.Output()
+		if err != nil {
+			log.Fatalf("could not get current branch: %v", err)
+		}
+
+		fromExistingBranch = strings.TrimSpace(string(output))
+	}
 }
