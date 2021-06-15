@@ -266,5 +266,12 @@ func commitChanges(newVersion string, skipMake bool) error {
 		return fmt.Errorf("git commit failed: %v (%v)", string(output), err)
 	}
 
+	cmd = exec.Command("git", "log", `--pretty=format:"%h"`, "-1")
+	output, err := cmd.Output()
+	if err != nil {
+		fmt.Println("WARNING: could not automatically get last commit hash.")
+	}
+	fmt.Printf("Commit successful. Hash of commit: %v", strings.TrimSpace(string(output)))
+
 	return nil
 }
