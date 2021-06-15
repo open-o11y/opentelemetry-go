@@ -16,18 +16,20 @@ package cmd
 
 import (
 	"fmt"
-	"go.opentelemetry.io/otel/internal/tools"
 	"log"
 	"os"
 	"os/exec"
 
 	"github.com/spf13/cobra"
+
+	"go.opentelemetry.io/otel/internal/tools"
 )
 
 var (
 	commitHash          string
 	deleteModuleSetTags bool
 )
+
 // tagCmd represents the tag command
 var tagCmd = &cobra.Command{
 	Use:   "tag",

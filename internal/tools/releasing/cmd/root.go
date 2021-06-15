@@ -28,8 +28,8 @@ import (
 )
 
 var (
-	cfgFile string
-	moduleSet string
+	cfgFile        string
+	moduleSet      string
 	versioningFile string
 )
 
@@ -50,11 +50,10 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-
 	rootCmd.PersistentFlags().StringVarP(&versioningFile, "versioning-file", "v", "",
 		"Path to versioning file that contains definitions of all module sets. "+
 			fmt.Sprintf("If unspecified will default to (RepoRoot)/%v.%v",
-				defaultVersionsConfigName, defaultVersionsConfigType),)
+				defaultVersionsConfigName, defaultVersionsConfigType))
 
 	if versioningFile == "" {
 		repoRoot, err := tools.FindRepoRoot()

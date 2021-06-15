@@ -16,12 +16,14 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
-	"go.opentelemetry.io/otel/internal/tools"
-	"golang.org/x/mod/modfile"
-	"golang.org/x/mod/semver"
 	"io/ioutil"
 	"log"
+
+	"github.com/spf13/cobra"
+	"golang.org/x/mod/modfile"
+	"golang.org/x/mod/semver"
+
+	"go.opentelemetry.io/otel/internal/tools"
 )
 
 const (
