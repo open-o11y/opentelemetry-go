@@ -18,12 +18,20 @@ import (
 	"fmt"
 	"github.com/spf13/cobra"
 	"go.opentelemetry.io/otel/internal/tools"
-	"os"
+	"log"
 	"path/filepath"
+
+	//"go.opentelemetry.io/otel/internal/tools"
+	"os"
+	//"path/filepath"
 
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
 )
+
+var cfgFile string
+
+var versioningFile string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -42,15 +50,20 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.releasing.yaml)")
+	rootCmd.PersistentFlags().StringVarP(&versioningFile, "versioning-file", "v", "",
+		"Path to versioning file that contains definitions of all module sets. "+
+			fmt.Sprintf("If unspecified will default to (RepoRoot)/%v.%v",
+				defaultVersionsConfigName, defaultVersionsConfigType),)
 
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	if versioningFile == "" {
+		repoRoot, err := tools.FindRepoRoot()
+		if err != nil {
+			log.Fatalf("Could not find repo root: %v", err)
+		}
+		versioningFile = filepath.Join(repoRoot,
+			fmt.Sprintf("%v.%v", defaultVersionsConfigName, defaultVersionsConfigType))
+	}
 }
 
 // initConfig reads in config file and ENV variables if set.
