@@ -16,35 +16,116 @@ package cmd
 
 import (
 	"fmt"
+	"go.opentelemetry.io/otel/internal/tools"
+	"log"
+	"os"
+	"os/exec"
 
 	"github.com/spf13/cobra"
 )
 
+var (
+	commitHash          string
+	deleteModuleSetTags bool
+)
 // tagCmd represents the tag command
 var tagCmd = &cobra.Command{
 	Use:   "tag",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short: "Applies Git tags to specified commit",
+	Long: `Tagging script to add Git tags to a specified commit hash created by prerelease script:
+- Creates new Git tags for all modules being updated.
+- If tagging fails in the middle of the script, the recently created tags will be deleted.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("tag called")
+
+		coreRepoRoot, err := tools.FindRepoRoot()
+		if err != nil {
+			log.Fatalf("unable to find repo root: %v", err)
+		}
+
+		fmt.Println("Changing to root directory...")
+		os.Chdir(coreRepoRoot)
+
+		// get new version and mod tags to update
+		newVersion, _, newModTagNames, err := tools.VersionsAndModulesToUpdate(versioningFile, moduleSet, coreRepoRoot)
+		if err != nil {
+			log.Fatalf("unable to get modules to update: %v", err)
+		}
+
+		// if delete-module-set-tags was specified, then delete all newModTagNames
+		// whose versions match the one in the versioning file
+		if deleteModuleSetTags {
+			modFullTagsToDelete := tools.CombineModuleTagNamesAndVersion(newModTagNames, newVersion)
+
+			if err := deleteTags(modFullTagsToDelete); err != nil {
+				log.Fatalf("unable to delete module tags: %v", err)
+			}
+
+			fmt.Println("Successfully deleted module tags")
+			os.Exit(0)
+		}
+
+		if err := tagAllModules(newVersion, newModTagNames, commitHash); err != nil {
+			log.Fatalf("unable to tag modules: %v", err)
+		}
 	},
 }
 
 func init() {
+	// Plain log output, no timestamps.
+	log.SetFlags(0)
+
 	rootCmd.AddCommand(tagCmd)
 
-	// Here you will define your flags and configuration settings.
+	tagCmd.Flags().StringVarP(&commitHash, "commit-hash", "c", "",
+		"Git commit hash to tag.",
+	)
+	tagCmd.MarkFlagRequired("commit-hash")
 
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// tagCmd.PersistentFlags().String("foo", "", "A help for foo")
+	tagCmd.Flags().BoolVarP(&deleteModuleSetTags, "delete-module-set-tags", "d", false,
+		"Specify this flag to delete all module tags associated with the version listed for the module set in the versioning file. Should only be used to undo recent tagging mistakes.",
+	)
+}
 
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// tagCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+// deleteTags removes the tags created for a certain version. This func is called to remove newly
+// created tags if the new module tagging fails.
+func deleteTags(modFullTags []string) error {
+	for _, modFullTag := range modFullTags {
+		fmt.Printf("Deleting tag %v\n", modFullTag)
+		cmd := exec.Command("git", "tag", "-d", modFullTag)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("could not delete tag %v:\n%v (%v)", modFullTag, string(output), err)
+		}
+	}
+	return nil
+}
+
+func tagAllModules(version string, modTagNames []tools.ModuleTagName, commitHash string) error {
+	modFullTags := tools.CombineModuleTagNamesAndVersion(modTagNames, version)
+
+	var addedFullTags []string
+
+	fmt.Printf("Tagging commit %v:\n", commitHash)
+
+	for _, newFullTag := range modFullTags {
+		fmt.Printf("%v\n", newFullTag)
+
+		cmd := exec.Command("git", "tag", "-a", newFullTag, "-s", "-m", "Version "+newFullTag, commitHash)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			fmt.Println("error creating a tag, removing all newly created tags...")
+
+			// remove newly created tags to prevent inconsistencies
+			if delTagsErr := deleteTags(addedFullTags); delTagsErr != nil {
+				return fmt.Errorf("git tag failed for %v:\n%v (%v).\nCould not remove all tags: %v",
+					newFullTag, string(output), err, delTagsErr,
+				)
+			}
+
+			return fmt.Errorf("git tag failed for %v:\n%v (%v)", newFullTag, string(output), err)
+		}
+
+		addedFullTags = append(addedFullTags, newFullTag)
+	}
+
+	return nil
 }
